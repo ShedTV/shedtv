@@ -109,6 +109,7 @@ fun GuideScreen(vm: AppViewModel) {
     val selectedBlock = selectedChannel?.let { selectedIn(rowBlocks(it)) }
 
     LaunchedEffect(Unit) {
+        vm.ensureCategoryHasChannels()
         if (row > 3) listState.scrollToItem(row - 2)
         runCatching { gridFocus.requestFocus() }
     }
@@ -178,7 +179,8 @@ fun GuideScreen(vm: AppViewModel) {
                                         else -> false // let focus move out to the menu
                                     }
                                 }
-                                AndroidKeyEvent.KEYCODE_DPAD_UP -> { if (row > 0) row--; true }
+                                // Up from the top row moves to the category switcher.
+                                AndroidKeyEvent.KEYCODE_DPAD_UP -> if (row > 0) { row--; true } else false
                                 AndroidKeyEvent.KEYCODE_DPAD_DOWN -> { if (row < channels.lastIndex) row++; true }
                                 AndroidKeyEvent.KEYCODE_CHANNEL_UP, AndroidKeyEvent.KEYCODE_PAGE_UP -> { row = (row - 8).coerceAtLeast(0); true }
                                 AndroidKeyEvent.KEYCODE_CHANNEL_DOWN, AndroidKeyEvent.KEYCODE_PAGE_DOWN -> { row = (row + 8).coerceAtMost(channels.lastIndex); true }
@@ -222,7 +224,7 @@ fun GuideScreen(vm: AppViewModel) {
 
                     Box(Modifier.fillMaxSize()) {
                         if (channels.isEmpty()) {
-                            Text("No channels in this category. Press Menu to change category.", color = Palette.TextMuted, fontSize = 15.sp)
+                            Text("No channels in this category. Press ▲ to change category.", color = Palette.TextMuted, fontSize = 15.sp)
                         }
                         LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxSize()) {
                             itemsIndexed(channels, key = { _, c -> c.streamId }) { index, ch ->
@@ -285,9 +287,24 @@ private fun GuideHeader(vm: AppViewModel, channel: Channel?, block: Block?, now:
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(formatTime(now), color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
             val cat = vm.categoryList.firstOrNull { it.id == vm.selectedCategoryId }?.name.orEmpty()
-            Text(cat, color = Palette.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            FocusTile(
+                onClick = { vm.cycleCategory(1) }, corner = 10.dp, focusedScale = 1.04f,
+                modifier = Modifier.onPreviewKeyEvent { e ->
+                    if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    when (e.key.nativeKeyCode) {
+                        AndroidKeyEvent.KEYCODE_DPAD_LEFT -> { vm.cycleCategory(-1); true }
+                        AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> { vm.cycleCategory(1); true }
+                        else -> false
+                    }
+                },
+            ) {
+                Text(
+                    "◀  $cat  ▶", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                    modifier = Modifier.background(Color(0x1AFFFFFF), RoundedCornerShape(10.dp)).padding(horizontal = 14.dp, vertical = 6.dp),
+                )
+            }
             vm.guideStatus?.let { Text(it, color = Palette.TextMuted, fontSize = 12.sp, maxLines = 2) }
-            Text("Menu: category  ·  ◀◀ ▶▶ jump 2 hrs", color = Palette.TextMuted, fontSize = 11.sp)
+            Text("▲ from the top row: change category  ·  ◀◀ ▶▶ jump 2 hrs", color = Palette.TextMuted, fontSize = 11.sp)
         }
     }
 }

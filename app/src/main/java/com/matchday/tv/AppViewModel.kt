@@ -206,9 +206,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Step through categories (Menu button in the guide). */
     fun cycleCategory(delta: Int = 1) {
-        val list = categoryList
-        val idx = list.indexOfFirst { it.id == selectedCategoryId }
+        val list = categoryList.filter { it.id == selectedCategoryId || channelCount(it.id) > 0 }
+        if (list.isEmpty()) return
+        val idx = list.indexOfFirst { it.id == selectedCategoryId }.coerceAtLeast(0)
         selectedCategoryId = list[(idx + delta).mod(list.size)].id
+    }
+
+    /** If the current category is empty (e.g. no favourites yet), fall back to all channels. */
+    fun ensureCategoryHasChannels() {
+        if (allChannels.isNotEmpty() && visibleChannels.isEmpty()) selectedCategoryId = CATEGORY_ALL
     }
 
     /** Programmes for a channel: the full guide if we have it, else the short EPG. */

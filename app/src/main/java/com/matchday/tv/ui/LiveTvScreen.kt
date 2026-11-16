@@ -57,6 +57,7 @@ fun LiveTvScreen(vm: AppViewModel) {
 
     // Return focus to the last channel watched, or start on the category list.
     LaunchedEffect(Unit) {
+        vm.ensureCategoryHasChannels()
         val idx = channels.indexOfFirst { it.streamId == vm.lastFocusedChannelId }
         if (idx >= 0) {
             channelListState.scrollToItem((idx - 3).coerceAtLeast(0))
