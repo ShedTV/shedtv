@@ -94,6 +94,9 @@ class Prefs(context: Context) {
 
     val active: Subscription? get() = subscriptions.let { list -> list.firstOrNull { it.id == activeId } ?: list.firstOrNull() }
 
+    fun hiddenCategories(subId: String): Set<String> = sp.getStringSet("hidden_$subId", emptySet())?.toSet() ?: emptySet()
+    fun setHiddenCategories(subId: String, value: Set<String>) = sp.edit().putStringSet("hidden_$subId", value).apply()
+
     fun favourites(subId: String): Set<String> = sp.getStringSet("favourites_$subId", emptySet())?.toSet() ?: emptySet()
     fun setFavourites(subId: String, value: Set<String>) = sp.edit().putStringSet("favourites_$subId", value).apply()
 

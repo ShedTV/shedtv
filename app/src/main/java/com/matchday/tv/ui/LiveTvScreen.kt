@@ -127,7 +127,7 @@ fun LiveTvScreen(vm: AppViewModel) {
                 }
             }
             Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SmallButton("Format: ${vm.streamFormat.uppercase()}") { vm.toggleStreamFormat() }
+                SmallButton("Manage categories") { vm.navigate(com.matchday.tv.Screen.Categories) }
             }
         }
 

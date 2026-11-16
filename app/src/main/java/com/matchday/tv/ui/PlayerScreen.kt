@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -102,6 +103,7 @@ fun PlayerScreen(vm: AppViewModel) {
     var rewindActive by remember { mutableStateOf(false) }
     var behindMs by remember { mutableStateOf(0L) }
     var paused by remember { mutableStateOf(false) }
+    var listOpen by remember { mutableStateOf(false) }
 
     val player = remember {
         val http = DefaultHttpDataSource.Factory()
@@ -280,7 +282,11 @@ fun PlayerScreen(vm: AppViewModel) {
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
     BackHandler {
-        if (showOverlay) showOverlay = false else vm.closePlayer()
+        when {
+            listOpen -> { listOpen = false; runCatching { focus.requestFocus() } }
+            showOverlay -> showOverlay = false
+            else -> vm.closePlayer()
+        }
     }
 
     Box(
@@ -289,6 +295,15 @@ fun PlayerScreen(vm: AppViewModel) {
             .background(Color.Black)
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                // While the channel list is open, it gets the remote (Right closes it).
+                if (listOpen) {
+                    if (event.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_RIGHT) {
+                        listOpen = false
+                        runCatching { focus.requestFocus() }
+                        return@onPreviewKeyEvent true
+                    }
+                    return@onPreviewKeyEvent false
+                }
                 when (event.key.nativeKeyCode) {
                     AndroidKeyEvent.KEYCODE_DPAD_UP, AndroidKeyEvent.KEYCODE_CHANNEL_UP -> { vm.zap(-1); true }
                     AndroidKeyEvent.KEYCODE_DPAD_DOWN, AndroidKeyEvent.KEYCODE_CHANNEL_DOWN -> { vm.zap(1); true }
@@ -303,9 +318,13 @@ fun PlayerScreen(vm: AppViewModel) {
                         true
                     }
                     AndroidKeyEvent.KEYCODE_MENU -> { vm.lastChannel(); true }
-                    AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER,
+                    AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER -> {
+                        showOverlay = false
+                        listOpen = true
+                        true
+                    }
                     AndroidKeyEvent.KEYCODE_INFO -> {
-                        if (showOverlay && event.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_CENTER) showOverlay = false else poke()
+                        if (showOverlay) showOverlay = false else poke()
                         true
                     }
                     AndroidKeyEvent.KEYCODE_LAST_CHANNEL -> { vm.lastChannel(); true }
@@ -351,7 +370,19 @@ fun PlayerScreen(vm: AppViewModel) {
             )
         }
 
-        AnimatedVisibility(visible = showOverlay, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
+        AnimatedVisibility(
+            visible = listOpen,
+            enter = androidx.compose.animation.slideInHorizontally { -it } + fadeIn(),
+            exit = androidx.compose.animation.slideOutHorizontally { -it } + fadeOut(),
+        ) {
+            ChannelListPanel(vm) { index ->
+                vm.playAt(index)
+                listOpen = false
+                runCatching { focus.requestFocus() }
+            }
+        }
+
+        AnimatedVisibility(visible = showOverlay && !listOpen, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
             Overlay(
                 vm = vm, videoInfo = videoInfo,
                 sourceLabel = if (sources.size > 1) "Source ${sourceIndex + 1} of ${sources.size}" else "",
@@ -373,6 +404,52 @@ fun PlayerScreen(vm: AppViewModel) {
                 modifier = Modifier.align(Alignment.TopStart).padding(top = 24.dp, start = 36.dp)
                     .background(Color(0xCC07090C), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
             )
+        }
+    }
+}
+
+/** Slim channel list down the left of the picture; the match keeps playing behind it. */
+@Composable
+private fun ChannelListPanel(vm: AppViewModel, onPick: (Int) -> Unit) {
+    val now = rememberNow()
+    val list = vm.playlist
+    val state = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = (vm.playingIndex - 4).coerceAtLeast(0))
+    val current = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(60); runCatching { current.requestFocus() } }
+    Column(
+        Modifier.fillMaxHeight().width(420.dp)
+            .background(Brush.horizontalGradient(listOf(Color(0xF507090C), Color(0xE607090C), Color(0x0007090C))))
+            .padding(start = 24.dp, top = 22.dp, end = 40.dp),
+    ) {
+        val cat = vm.categoryList.firstOrNull { it.id == vm.selectedCategoryId }?.name ?: "Channels"
+        Text(cat.uppercase(), color = Palette.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Text("OK to watch  ·  Back or ▶ to close", color = Palette.TextMuted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 10.dp))
+        androidx.compose.foundation.lazy.LazyColumn(
+            state = state,
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp, horizontal = 4.dp),
+        ) {
+            items(list.size, key = { list[it].streamId }) { i ->
+                val ch = list[i]
+                val playing = i == vm.playingIndex
+                LaunchedEffect(ch.streamId) { vm.loadEpg(ch) }
+                val (nowProg, _) = vm.programmesFor(ch).nowAndNext(now)
+                FocusTile(
+                    onClick = { onPick(i) }, selected = playing, corner = 10.dp, focusedScale = 1.02f,
+                    modifier = Modifier.fillMaxWidth().then(if (playing) Modifier.focusRequester(current) else Modifier),
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ChannelLogo(ch, 34)
+                        Column(Modifier.weight(1f)) {
+                            Text(ch.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(nowProg?.title ?: "", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.7f))
+                            if (nowProg != null) ProgressBar(nowProg.progress(now), Modifier.fillMaxWidth().padding(top = 4.dp), height = 3.dp)
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -441,8 +518,8 @@ private fun Overlay(vm: AppViewModel, videoInfo: String, sourceLabel: String, re
             }
             Spacer(Modifier.height(2.dp))
             Text(
-                "▲▼ channel  ·  " + (if (rewindLabel.isNotEmpty()) "◀ ▶ 15s  ·  ◀◀ ▶▶ 1 min  ·  ⏯ pause  ·  ☰ last channel" else "◀◀ last channel") +
-                    (if (sourceLabel.isNotEmpty()) "  ·  ▶▶ at live: switch source" else "") + "  ·  OK hide",
+                "OK channel list  ·  ▲▼ channel  ·  " + (if (rewindLabel.isNotEmpty()) "◀ ▶ 15s  ·  ◀◀ ▶▶ 1 min  ·  ⏯ pause  ·  ☰ last channel" else "◀◀ last channel") +
+                    (if (sourceLabel.isNotEmpty()) "  ·  ▶▶ at live: switch source" else "") + "  ·  Back hide",
                 color = Palette.TextMuted, fontSize = 12.sp,
             )
         }

@@ -124,6 +124,10 @@ fun SettingsScreen(vm: AppViewModel) {
 
                 // ---- Playback ----
                 Spacer(Modifier.height(2.dp))
+                Heading("Categories", "${vm.hiddenCategories.size} hidden. Hidden categories stay out of Live TV, the guide and search.")
+                Chip("Manage categories") { vm.navigate(Screen.Categories) }
+
+                Spacer(Modifier.height(2.dp))
                 Heading("Stream format", "Try HLS if some channels won't play")
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Chip("MPEG-TS", selected = vm.streamFormat == "ts") { vm.updateActive(streamFormat = "ts") }

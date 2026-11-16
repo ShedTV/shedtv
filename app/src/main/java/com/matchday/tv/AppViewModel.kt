@@ -38,6 +38,7 @@ sealed interface Screen {
     data object Player : Screen
     data object Settings : Screen
     data object Search : Screen
+    data object Categories : Screen
     data object EditSubscription : Screen
 }
 
@@ -118,20 +119,42 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private var previousIndex: Int? = null
 
 
+    /** Category ids the user has hidden for this subscription. */
+    var hiddenCategories by mutableStateOf<Set<String>>(emptySet())
+        private set
+
+    /** Every channel not in a hidden category. Favourites always show. */
+    val shownChannels: List<Channel> by derivedStateOf {
+        val hidden = hiddenCategories
+        if (hidden.isEmpty()) allChannels
+        else allChannels.filter { it.categoryId !in hidden || it.streamId in favourites }
+    }
+
     val visibleChannels: List<Channel> by derivedStateOf {
         when (selectedCategoryId) {
-            CATEGORY_ALL -> allChannels
+            CATEGORY_ALL -> shownChannels
             CATEGORY_FAVOURITES -> allChannels.filter { it.streamId in favourites }
             else -> allChannels.filter { it.categoryId == selectedCategoryId }
         }
     }
+
+    /** All provider categories, including hidden ones, for the manage page. */
+    val allCategories: List<Category> get() = categories
+
+    fun setCategoriesHidden(ids: Collection<String>, hidden: Boolean) {
+        hiddenCategories = if (hidden) hiddenCategories + ids else hiddenCategories - ids.toSet()
+        activeSubscription?.let { prefs.setHiddenCategories(it.id, hiddenCategories) }
+        if (selectedCategoryId in hiddenCategories) selectedCategoryId = CATEGORY_ALL
+    }
+
+    fun categoryChannelCount(id: String): Int = allChannels.count { it.categoryId == id }
 
     /** Categories shown in the side list, with the two built-in ones first. */
     val categoryList: List<Category> by derivedStateOf {
         listOf(
             Category(CATEGORY_FAVOURITES, "Favourites"),
             Category(CATEGORY_ALL, "All channels"),
-        ) + categories
+        ) + categories.filter { it.id !in hiddenCategories }
     }
 
     val currentChannel: Channel? get() = playlist.getOrNull(playingIndex)
@@ -172,7 +195,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (words.joinToString("").length < 2) return@withContext SearchResults()
         fun hit(text: String): Boolean { val t = text.lowercase(); return words.all { t.contains(it) } }
         val favs = favourites
-        val chans = allChannels
+        val chans = shownChannels
         val channelHits = chans.filter { hit(it.name) }
             .sortedByDescending { com.matchday.tv.data.SportMatcher.channelScore(it, favs) }.take(40)
         val bestByEpg = HashMap<String, Channel>()
@@ -319,6 +342,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 activeSubscription = sub
                 prefs.activeId = sub.id
                 favourites = prefs.favourites(sub.id)
+                hiddenCategories = prefs.hiddenCategories(sub.id)
                 editingSubscription = null
                 loadingMessage = "Loading channels…"
                 val cats = c.liveCategories()
@@ -353,7 +377,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun channelCount(categoryId: String): Int = when (categoryId) {
-        CATEGORY_ALL -> allChannels.size
+        CATEGORY_ALL -> shownChannels.size
         CATEGORY_FAVOURITES -> favourites.size
         else -> allChannels.count { it.categoryId == categoryId }
     }
@@ -436,7 +460,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun play(channel: Channel, from: Screen = Screen.Live) {
         returnScreen = from
         // From the Sport Hub the channel may not be in the current category: zap through everything.
-        val list = visibleChannels.takeIf { l -> l.any { it.streamId == channel.streamId } } ?: allChannels
+        val list = visibleChannels.takeIf { l -> l.any { it.streamId == channel.streamId } } ?: shownChannels.takeIf { l -> l.any { it.streamId == channel.streamId } } ?: allChannels
         playlist = list
         playingIndex = list.indexOfFirst { it.streamId == channel.streamId }.coerceAtLeast(0)
         previousIndex = null
@@ -449,6 +473,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (playlist.isEmpty()) return
         previousIndex = playingIndex
         playingIndex = (playingIndex + delta).mod(playlist.size)
+        lastFocusedChannelId = currentChannel?.streamId
+    }
+
+    /** Play a channel from the in-player list. */
+    fun playAt(index: Int) {
+        if (index !in playlist.indices || index == playingIndex) return
+        previousIndex = playingIndex
+        playingIndex = index
         lastFocusedChannelId = currentChannel?.streamId
     }
 

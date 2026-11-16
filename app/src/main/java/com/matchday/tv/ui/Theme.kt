@@ -87,7 +87,7 @@ fun FocusTile(
         modifier = modifier,
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) Palette.CardRaised else Color.Transparent,
+            containerColor = Color.Transparent,
             contentColor = if (selected) Palette.Accent else Palette.Text,
             focusedContainerColor = Palette.Text,
             focusedContentColor = Palette.Background,
@@ -96,6 +96,7 @@ fun FocusTile(
         ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = focusedScale),
         border = ClickableSurfaceDefaults.border(
+            border = if (selected) Border(border = BorderStroke(2.dp, Palette.Accent), shape = shape) else Border.None,
             focusedBorder = Border(border = BorderStroke(3.dp, Palette.Accent), shape = shape),
         ),
         content = content,
