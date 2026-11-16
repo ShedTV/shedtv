@@ -9,6 +9,8 @@ import com.matchday.tv.ui.MovieDetailsScreen
 import com.matchday.tv.ui.MoviesScreen
 import com.matchday.tv.ui.SeriesDetailsScreen
 import com.matchday.tv.ui.SeriesScreen
+import com.matchday.tv.ui.SportHubScreen
+import com.matchday.tv.ui.TeamPickerScreen
 import com.matchday.tv.ui.VodPlayerScreen
 import com.matchday.tv.ui.GuideScreen
 import com.matchday.tv.ui.LiveTvScreen
@@ -37,6 +39,8 @@ private fun App(vm: AppViewModel = viewModel()) {
             onSubmit = { vm.connect(it) },
         )
         Screen.Loading -> LoadingScreen(vm.loadingMessage)
+        Screen.Sport -> SportHubScreen(vm)
+        Screen.Teams -> TeamPickerScreen(vm)
         Screen.Live -> LiveTvScreen(vm)
         Screen.Guide -> GuideScreen(vm)
         Screen.Movies -> MoviesScreen(vm)

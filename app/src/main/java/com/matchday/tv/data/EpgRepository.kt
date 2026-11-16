@@ -25,7 +25,7 @@ class EpgRepository(private val context: Context) {
         }
         progress("Reading TV guide…")
         val now = System.currentTimeMillis()
-        XmltvParser.parse(file, channelIds, from = now - PAST_MS, to = now + FUTURE_MS)
+        XmltvParser.parse(file, channelIds, from = now - PAST_MS, to = now + WEEK_MS, fullUntil = now + FUTURE_MS)
     }
 
     private fun download(url: String, target: File) {
@@ -47,5 +47,6 @@ class EpgRepository(private val context: Context) {
         private const val MAX_AGE_MS = 8 * 60 * 60 * 1000L
         const val PAST_MS = 3 * 60 * 60 * 1000L
         const val FUTURE_MS = 36 * 60 * 60 * 1000L
+        const val WEEK_MS = 7 * 24 * 60 * 60 * 1000L
     }
 }

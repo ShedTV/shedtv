@@ -124,7 +124,7 @@ fun GuideScreen(vm: AppViewModel) {
         channels.subList((row - 6).coerceAtLeast(0), (row + 10).coerceAtMost(channels.size)).forEach { vm.loadEpg(it) }
     }
 
-    BackHandler { vm.navigate(Screen.Live) }
+    BackHandler { vm.navigate(Screen.Sport) }
 
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, Screen.Guide)

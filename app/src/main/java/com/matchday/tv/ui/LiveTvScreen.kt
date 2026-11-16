@@ -74,6 +74,7 @@ fun LiveTvScreen(vm: AppViewModel) {
         vm.loadEpg(ch)
     }
 
+    androidx.activity.compose.BackHandler { vm.navigate(com.matchday.tv.Screen.Sport) }
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
     NavRail(vm, com.matchday.tv.Screen.Live)
     Row(

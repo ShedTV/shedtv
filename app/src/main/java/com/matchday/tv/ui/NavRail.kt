@@ -37,6 +37,7 @@ import com.matchday.tv.AppViewModel
 import com.matchday.tv.Screen
 
 object Icons {
+    const val SPORT = "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 7.5l3.4 2.5-1.3 4h-4.2l-1.3-4zM12 3v4.5M15.4 10l5.2-1.6M14.1 14l3 4.3M9.9 14l-3 4.3M8.6 10l-5.2-1.6"
     const val LIVE = "M3 7h18v12H3zM8 3l4 4 4-4"
     const val GUIDE = "M3 5h18M3 12h18M3 19h18M8 5v14"
     const val MOVIES = "M4 4h16v16H4zM4 9h16M9 4v5M15 4v5"
@@ -58,6 +59,7 @@ fun StrokeIcon(path: String, size: Dp = 24.dp, color: Color = LocalContentColor.
 private data class RailItem(val label: String, val icon: String, val screen: Screen)
 
 private val railItems = listOf(
+    RailItem("Sport", Icons.SPORT, Screen.Sport),
     RailItem("Live TV", Icons.LIVE, Screen.Live),
     RailItem("Guide", Icons.GUIDE, Screen.Guide),
     RailItem("Movies", Icons.MOVIES, Screen.Movies),
@@ -102,7 +104,7 @@ fun NavRail(vm: AppViewModel, current: Screen) {
 /** Holding page for sections that arrive in a later build. */
 @Composable
 fun ComingSoonScreen(vm: AppViewModel, current: Screen, title: String, body: String) {
-    androidx.activity.compose.BackHandler { vm.navigate(Screen.Live) }
+    androidx.activity.compose.BackHandler { vm.navigate(Screen.Sport) }
     androidx.compose.foundation.layout.Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, current)
         Column(

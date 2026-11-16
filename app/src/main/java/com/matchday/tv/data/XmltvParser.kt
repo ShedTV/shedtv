@@ -16,7 +16,13 @@ object XmltvParser {
     private val withOffset = SimpleDateFormat("yyyyMMddHHmmss Z", Locale.US)
     private val utc = SimpleDateFormat("yyyyMMddHHmmss", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
 
-    fun parse(file: File, ids: Set<String>, from: Long, to: Long): Map<String, List<EpgEntry>> {
+    private val fixtureTitle = Regex("\\s(?:v|vs|vs\\.|versus)\\s", RegexOption.IGNORE_CASE)
+
+    /**
+     * Keeps everything between [from] and [fullUntil]; after that, up to [to], only
+     * programmes that look like fixtures ("X v Y"), so the Sport Hub can see the week ahead.
+     */
+    fun parse(file: File, ids: Set<String>, from: Long, to: Long, fullUntil: Long = to): Map<String, List<EpgEntry>> {
         val result = HashMap<String, MutableList<EpgEntry>>()
         open(file).use { input ->
             val p = Xml.newPullParser()
@@ -52,7 +58,7 @@ object XmltvParser {
                         }
                     } else if (event == XmlPullParser.END_TAG && p.name == "programme") {
                         val id = channel
-                        if (id != null) {
+                        if (id != null && (start <= fullUntil || fixtureTitle.containsMatchIn(title.orEmpty()))) {
                             result.getOrPut(id) { ArrayList() }.add(
                                 EpgEntry(
                                     title = title?.trim().orEmpty().ifEmpty { "No information" },

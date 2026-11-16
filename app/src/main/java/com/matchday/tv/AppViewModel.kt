@@ -24,6 +24,8 @@ import kotlinx.coroutines.withContext
 sealed interface Screen {
     data object Login : Screen
     data object Loading : Screen
+    data object Sport : Screen
+    data object Teams : Screen
     data object Live : Screen
     data object Guide : Screen
     data object Movies : Screen
@@ -75,6 +77,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private var guideJob: Job? = null
     private val epgRepository = EpgRepository(app)
 
+    /** Followed teams and fixtures from the guide. */
+    val sport = SportHub(app, viewModelScope)
+
     /** Movies and series. */
     val library = Library(app, viewModelScope) { client }
 
@@ -107,6 +112,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     val currentChannel: Channel? get() = playlist.getOrNull(playingIndex)
 
+    /** Every live channel from the provider. */
+    val channels: List<Channel> get() = allChannels
+
     init {
         prefs.credentials?.let { connect(it, save = false) }
     }
@@ -131,7 +139,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val ids = chans.mapTo(HashSet()) { it.streamId }
                 favourites = favourites.filterTo(HashSet()) { it in ids }
                 selectedCategoryId = if (favourites.isNotEmpty()) CATEGORY_FAVOURITES else CATEGORY_ALL
-                screen = Screen.Live
+                screen = Screen.Sport
                 loadGuide()
             } catch (e: Exception) {
                 error = e.message ?: "Couldn't connect to the provider."
@@ -234,7 +242,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun play(channel: Channel, from: Screen = Screen.Live) {
         returnScreen = from
-        val list = visibleChannels
+        // From the Sport Hub the channel may not be in the current category: zap through everything.
+        val list = visibleChannels.takeIf { l -> l.any { it.streamId == channel.streamId } } ?: allChannels
         playlist = list
         playingIndex = list.indexOfFirst { it.streamId == channel.streamId }.coerceAtLeast(0)
         previousIndex = null
