@@ -57,8 +57,8 @@ fun SettingsScreen(vm: AppViewModel) {
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, Screen.Settings)
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 32.dp, end = 32.dp, top = 28.dp, bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 32.dp, end = 32.dp, top = 20.dp, bottom = 72.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text("SETTINGS", color = Palette.Text, fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             vm.error?.let { Text(it, color = Palette.Live, fontSize = 14.sp) }
@@ -94,7 +94,7 @@ fun SettingsScreen(vm: AppViewModel) {
 
             if (active != null) {
                 // ---- User agent ----
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(2.dp))
                 Heading("User agent for ${active.name}", "The name ShedTV gives your provider. Currently: ${UserAgents.labelFor(active.userAgent)}")
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     UserAgents.presets.forEach { p ->
@@ -123,27 +123,27 @@ fun SettingsScreen(vm: AppViewModel) {
                 Text("Applies to channel lists, the TV guide and streams. Takes effect on the next channel you open.", color = Palette.TextMuted, fontSize = 12.sp)
 
                 // ---- Playback ----
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(2.dp))
                 Heading("Stream format", "Try HLS if some channels won't play")
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Chip("MPEG-TS", selected = vm.streamFormat == "ts") { vm.updateActive(streamFormat = "ts") }
                     Chip("HLS (m3u8)", selected = vm.streamFormat == "m3u8") { vm.updateActive(streamFormat = "m3u8") }
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(2.dp))
                 Heading("Live rewind", "Pause and rewind live TV, up to about 30 minutes. Uses up to 1.5 GB of storage while watching. MPEG-TS format only.")
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Chip("On", selected = vm.liveRewind) { vm.setLiveRewindEnabled(true) }
                     Chip("Off", selected = !vm.liveRewind) { vm.setLiveRewindEnabled(false) }
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(2.dp))
                 Heading("TV guide", vm.guideStatus ?: "Refreshes every 8 hours")
                 Chip("Refresh guide now") { vm.loadGuide(force = true) }
             }
 
             // ---- App updates ----
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(2.dp))
             Heading("App update", vm.updater.status ?: "ShedTV ${vm.updater.versionName}")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Chip(if (vm.updater.busy) "Working…" else "Check for updates") { vm.updater.check(silent = false) }

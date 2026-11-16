@@ -77,12 +77,12 @@ fun NavRail(vm: AppViewModel, current: Screen) {
             .width(76.dp)
             .fillMaxHeight()
             .background(Color(0x99000000))
-            .padding(vertical = 24.dp),
+            .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        ShedMark(46.dp)
-        Spacer(Modifier.height(18.dp))
+        ShedMark(38.dp)
+        Spacer(Modifier.height(6.dp))
         railItems.forEach { item ->
             val selected = item.screen == current
             FocusTile(
@@ -93,11 +93,11 @@ fun NavRail(vm: AppViewModel, current: Screen) {
                 modifier = Modifier.width(62.dp),
             ) {
                 Column(
-                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    Modifier.fillMaxWidth().padding(vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    StrokeIcon(item.icon, 22.dp)
+                    StrokeIcon(item.icon, 20.dp)
                     Text(item.label, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
