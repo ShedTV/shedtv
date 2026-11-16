@@ -104,6 +104,9 @@ class XtreamClient(credentials: Credentials) {
         }
     }
 
+    fun xmltvUrl(): String =
+        "${creds.server}/xmltv.php?username=${enc(creds.username)}&password=${enc(creds.password)}"
+
     fun streamUrl(channel: Channel, format: String): String {
         val ext = if (format == "m3u8") "m3u8" else "ts"
         return "${creds.server}/live/${encPath(creds.username)}/${encPath(creds.password)}/${channel.streamId}.$ext"

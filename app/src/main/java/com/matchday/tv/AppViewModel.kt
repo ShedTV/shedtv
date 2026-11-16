@@ -13,14 +13,21 @@ import com.matchday.tv.data.Category
 import com.matchday.tv.data.Channel
 import com.matchday.tv.data.Credentials
 import com.matchday.tv.data.EpgEntry
+import com.matchday.tv.data.EpgRepository
 import com.matchday.tv.data.Prefs
 import com.matchday.tv.data.XtreamClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed interface Screen {
     data object Login : Screen
     data object Loading : Screen
     data object Live : Screen
+    data object Guide : Screen
+    data object Movies : Screen
+    data object Series : Screen
     data object Player : Screen
 }
 
@@ -55,6 +62,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Short EPG per stream id. */
     val epg = mutableStateMapOf<String, List<EpgEntry>>()
     private val epgLoading = mutableSetOf<String>()
+
+    /** Full XMLTV guide, keyed by lower-cased EPG channel id. */
+    var guide by mutableStateOf<Map<String, List<EpgEntry>>>(emptyMap())
+        private set
+    /** Progress or problem message for the full guide; null when ready. */
+    var guideStatus by mutableStateOf<String?>(null)
+        private set
+    private var guideJob: Job? = null
+    private val epgRepository = EpgRepository(app)
+
+    /** Where Back from the player returns to. */
+    private var returnScreen: Screen = Screen.Live
 
     var playlist by mutableStateOf<List<Channel>>(emptyList())
         private set
@@ -107,6 +126,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 favourites = favourites.filterTo(HashSet()) { it in ids }
                 selectedCategoryId = if (favourites.isNotEmpty()) CATEGORY_FAVOURITES else CATEGORY_ALL
                 screen = Screen.Live
+                loadGuide()
             } catch (e: Exception) {
                 error = e.message ?: "Couldn't connect to the provider."
                 screen = Screen.Login
@@ -120,6 +140,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         allChannels = emptyList()
         categories = emptyList()
         epg.clear()
+        guideJob?.cancel()
+        guide = emptyMap()
+        guideStatus = null
         screen = Screen.Login
     }
 
@@ -146,6 +169,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun loadEpg(channel: Channel, force: Boolean = false) {
+        if (!force && programmesFor(channel).isNotEmpty()) return
         val id = channel.streamId
         if (!force && (epg.containsKey(id) || id in epgLoading)) return
         val c = client ?: return
@@ -161,7 +185,42 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun play(channel: Channel) {
+    fun navigate(to: Screen) {
+        screen = to
+    }
+
+    /** Step through categories (Menu button in the guide). */
+    fun cycleCategory(delta: Int = 1) {
+        val list = categoryList
+        val idx = list.indexOfFirst { it.id == selectedCategoryId }
+        selectedCategoryId = list[(idx + delta).mod(list.size)].id
+    }
+
+    /** Programmes for a channel: the full guide if we have it, else the short EPG. */
+    fun programmesFor(channel: Channel): List<EpgEntry> {
+        val full = channel.epgId?.trim()?.lowercase()?.let { guide[it] }
+        return if (!full.isNullOrEmpty()) full else epg[channel.streamId].orEmpty()
+    }
+
+    fun loadGuide(force: Boolean = false) {
+        val c = client ?: return
+        if (guideJob?.isActive == true) return
+        val ids = allChannels.mapNotNullTo(HashSet()) { it.epgId?.trim()?.lowercase()?.takeIf { id -> id.isNotEmpty() } }
+        guideJob = viewModelScope.launch {
+            try {
+                val data = epgRepository.load(c, ids, force) { msg ->
+                    withContext(Dispatchers.Main) { guideStatus = msg }
+                }
+                guide = data
+                guideStatus = if (data.isEmpty()) "Your provider's guide had no listings for these channels." else null
+            } catch (e: Exception) {
+                guideStatus = "Couldn't load the TV guide (${e.message ?: "unknown error"})."
+            }
+        }
+    }
+
+    fun play(channel: Channel, from: Screen = Screen.Live) {
+        returnScreen = from
         val list = visibleChannels
         playlist = list
         playingIndex = list.indexOfFirst { it.streamId == channel.streamId }.coerceAtLeast(0)
@@ -189,6 +248,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun streamUrl(channel: Channel): String? = client?.streamUrl(channel, streamFormat)
 
     fun closePlayer() {
-        screen = Screen.Live
+        screen = returnScreen
     }
 }

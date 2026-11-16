@@ -74,23 +74,19 @@ fun LiveTvScreen(vm: AppViewModel) {
         vm.loadEpg(ch)
     }
 
+    Row(Modifier.fillMaxSize().background(Palette.Background)) {
+    NavRail(vm, com.matchday.tv.Screen.Live)
     Row(
         Modifier
             .fillMaxSize()
-            .background(Palette.Background)
-            .padding(start = 32.dp, top = 28.dp, end = 32.dp),
-        horizontalArrangement = Arrangement.spacedBy(20.dp),
+            .padding(start = 20.dp, top = 28.dp, end = 28.dp),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         // Categories
-        Column(Modifier.width(210.dp).fillMaxHeight()) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(
-                    Modifier.size(30.dp).background(Palette.Accent, RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center,
-                ) { Text("M", color = Palette.Background, fontWeight = FontWeight.Bold, fontSize = 17.sp) }
-                Text("LIVE TV", color = Palette.Text, fontWeight = FontWeight.Bold, fontSize = 20.sp, letterSpacing = 1.sp)
-            }
-            Spacer(Modifier.height(16.dp))
+        Column(Modifier.width(200.dp).fillMaxHeight()) {
+            Text("LIVE TV", color = Palette.Text, fontWeight = FontWeight.Bold, fontSize = 20.sp, letterSpacing = 1.sp,
+                modifier = Modifier.padding(start = 6.dp, top = 2.dp))
+            Spacer(Modifier.height(14.dp))
             LazyColumn(
                 Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -135,7 +131,7 @@ fun LiveTvScreen(vm: AppViewModel) {
         }
 
         // Channels
-        Column(Modifier.width(360.dp).fillMaxHeight()) {
+        Column(Modifier.width(320.dp).fillMaxHeight()) {
             Text(
                 vm.categoryList.firstOrNull { it.id == vm.selectedCategoryId }?.name.orEmpty(),
                 color = Palette.TextMuted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
@@ -180,6 +176,7 @@ fun LiveTvScreen(vm: AppViewModel) {
             vm = vm,
             modifier = Modifier.weight(1f).fillMaxHeight().padding(top = 6.dp, bottom = 28.dp),
         )
+    }
     }
 }
 
@@ -267,7 +264,7 @@ private fun ChannelDetails(channel: Channel?, vm: AppViewModel, modifier: Modifi
             Text("Pick a channel", color = Palette.TextMuted, fontSize = 18.sp)
             return@Column
         }
-        val (current, next) = vm.epg[channel.streamId].orEmpty().nowAndNext(now)
+        val (current, next) = vm.programmesFor(channel).nowAndNext(now)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             ChannelLogo(channel, 56)
             Column {

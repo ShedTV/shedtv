@@ -239,7 +239,7 @@ fun PlayerScreen(vm: AppViewModel) {
 private fun Overlay(vm: AppViewModel, videoInfo: String) {
     val channel = vm.currentChannel ?: return
     val now = rememberNow()
-    val (current, next) = vm.epg[channel.streamId].orEmpty().nowAndNext(now)
+    val (current, next) = vm.programmesFor(channel).nowAndNext(now)
 
     Box(Modifier.fillMaxSize()) {
         // Top: tech info and clock
@@ -290,7 +290,7 @@ private fun Overlay(vm: AppViewModel, videoInfo: String) {
             }
             Spacer(Modifier.height(2.dp))
             Text(
-                "▲▼ change channel  ·  OK hide  ·  ◀◀ last channel  ·  Back to list",
+                "▲▼ change channel  ·  OK hide  ·  ◀◀ last channel  ·  Back to go back",
                 color = Palette.TextMuted, fontSize = 12.sp,
             )
         }
