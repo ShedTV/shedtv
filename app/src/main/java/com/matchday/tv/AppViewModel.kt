@@ -37,7 +37,17 @@ sealed interface Screen {
     data object VodPlayer : Screen
     data object Player : Screen
     data object Settings : Screen
+    data object Search : Screen
     data object EditSubscription : Screen
+}
+
+data class SearchResults(
+    val channels: List<Channel> = emptyList(),
+    val programmes: List<Pair<Channel, EpgEntry>> = emptyList(),
+    val movies: List<com.matchday.tv.data.VodItem> = emptyList(),
+    val series: List<com.matchday.tv.data.SeriesItem> = emptyList(),
+) {
+    val isEmpty get() = channels.isEmpty() && programmes.isEmpty() && movies.isEmpty() && series.isEmpty()
 }
 
 const val CATEGORY_FAVOURITES = "__fav"
@@ -140,6 +150,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private var guideLoadedAt = 0L
+
+    var searchQuery by mutableStateOf("")
+
+    /** Find channels, programmes (now and coming up), movies and series. Every word must match. */
+    suspend fun search(query: String): SearchResults = withContext(Dispatchers.Default) {
+        val words = query.lowercase().split(' ').filter { it.isNotBlank() }
+        if (words.joinToString("").length < 2) return@withContext SearchResults()
+        fun hit(text: String): Boolean { val t = text.lowercase(); return words.all { t.contains(it) } }
+        val favs = favourites
+        val chans = allChannels
+        val channelHits = chans.filter { hit(it.name) }
+            .sortedByDescending { com.matchday.tv.data.SportMatcher.channelScore(it, favs) }.take(40)
+        val bestByEpg = HashMap<String, Channel>()
+        for (c in chans) {
+            val id = c.epgId?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: continue
+            val cur = bestByEpg[id]
+            if (cur == null || com.matchday.tv.data.SportMatcher.channelScore(c, favs) > com.matchday.tv.data.SportMatcher.channelScore(cur, favs)) bestByEpg[id] = c
+        }
+        val now = System.currentTimeMillis()
+        val progs = ArrayList<Pair<Channel, EpgEntry>>()
+        for ((id, list) in guide) {
+            val ch = bestByEpg[id] ?: continue
+            for (p in list) if (p.end > now && hit(p.title)) progs += ch to p
+        }
+        val programmeHits = progs.sortedBy { it.second.start }
+            .distinctBy { it.second.title.lowercase() + "|" + it.second.start / 60_000 }.take(40)
+        SearchResults(
+            channels = channelHits,
+            programmes = programmeHits,
+            movies = library.movies.filter { hit(it.name) }.take(40),
+            series = library.series.filter { hit(it.name) }.take(40),
+        )
+    }
 
     /** This channel plus other streams carrying the same thing (same guide id), best first. */
     fun sourcesFor(channel: Channel): List<Channel> {

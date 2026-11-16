@@ -119,6 +119,7 @@ private fun Screens(vm: AppViewModel) {
             onSubmit = { name, creds -> vm.saveSubscription(name, creds) },
         )
         Screen.Settings -> SettingsScreen(vm)
+        Screen.Search -> com.matchday.tv.ui.SearchScreen(vm)
         Screen.Loading -> LoadingScreen(vm.loadingMessage)
         Screen.Sport -> SportHubScreen(vm)
         Screen.Teams -> TeamPickerScreen(vm)

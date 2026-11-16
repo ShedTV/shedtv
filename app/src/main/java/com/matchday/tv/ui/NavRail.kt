@@ -42,7 +42,8 @@ object Icons {
     const val GUIDE = "M3 5h18M3 12h18M3 19h18M8 5v14"
     const val MOVIES = "M4 4h16v16H4zM4 9h16M9 4v5M15 4v5"
     const val SERIES = "M3 6h18v12H3zM7 21h10"
-    const val SETTINGS = "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"
+    const val SEARCH = "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-4-4"
+    const val SETTINGS = ""M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"
 }
 
 /** A 24x24 stroke icon drawn from an SVG path, in the current content colour. */
@@ -65,6 +66,7 @@ private val railItems = listOf(
     RailItem("Guide", Icons.GUIDE, Screen.Guide),
     RailItem("Movies", Icons.MOVIES, Screen.Movies),
     RailItem("Series", Icons.SERIES, Screen.Series),
+    RailItem("Search", Icons.SEARCH, Screen.Search),
     RailItem("Settings", Icons.SETTINGS, Screen.Settings),
 )
 
