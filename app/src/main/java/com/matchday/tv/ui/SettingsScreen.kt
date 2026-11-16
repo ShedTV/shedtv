@@ -141,6 +141,14 @@ fun SettingsScreen(vm: AppViewModel) {
                 Heading("TV guide", vm.guideStatus ?: "Refreshes every 8 hours")
                 Chip("Refresh guide now") { vm.loadGuide(force = true) }
             }
+
+            // ---- App updates ----
+            Spacer(Modifier.height(8.dp))
+            Heading("App update", vm.updater.status ?: "ShedTV ${vm.updater.versionName}")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Chip(if (vm.updater.busy) "Working…" else "Check for updates") { vm.updater.check(silent = false) }
+                if (vm.updater.available) Chip("Install build ${vm.updater.latestBuild}", selected = true) { vm.updater.install() }
+            }
         }
     }
 }

@@ -102,6 +102,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Followed teams and fixtures from the guide. */
     val sport = SportHub(app, viewModelScope)
 
+    /** In-app updates. */
+    val updater = Updater(app, viewModelScope)
+
     /** Movies and series. */
     val library = Library(app, viewModelScope, { client }, { activeSubscription?.id ?: "none" })
 
@@ -138,6 +141,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         activeSubscription?.let { connect(it, attempts = 4) }
+        updater.check(silent = true)
         // Keep fixtures, alerts and the guide fresh while the app is open.
         viewModelScope.launch {
             while (true) {

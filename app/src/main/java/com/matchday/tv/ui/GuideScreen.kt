@@ -62,7 +62,7 @@ private const val MIN = 60_000L
 private const val HALF_HOUR = 30 * MIN
 private const val WINDOW = 120 * MIN
 private val ROW_HEIGHT = 52.dp
-private val CHANNEL_COL = 190.dp
+private val CHANNEL_COL = 170.dp
 
 private fun floorHalfHour(t: Long) = t - (t % HALF_HOUR)
 
@@ -129,8 +129,34 @@ fun GuideScreen(vm: AppViewModel) {
 
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, Screen.Guide)
+        // Categories: moving onto one shows it in the grid; OK or Right goes into the grid.
+        Column(Modifier.width(150.dp).fillMaxHeight().padding(start = 8.dp, top = 22.dp)) {
+            Text("GUIDE", color = Palette.Text, fontWeight = FontWeight.Bold, fontSize = 18.sp, letterSpacing = 1.sp,
+                modifier = Modifier.padding(start = 8.dp, bottom = 10.dp))
+            val cats = vm.categoryList.filter { it.id == vm.selectedCategoryId || vm.channelCount(it.id) > 0 }
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 6.dp),
+                modifier = Modifier.fillMaxHeight(),
+            ) {
+                itemsIndexed(cats, key = { _, c -> c.id }) { _, c ->
+                    val isSel = c.id == vm.selectedCategoryId
+                    FocusTile(
+                        onClick = { vm.selectCategory(c.id); runCatching { gridFocus.requestFocus() } },
+                        selected = isSel, corner = 8.dp, focusedScale = 1.03f,
+                        modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) vm.selectCategory(c.id) },
+                    ) {
+                        Text(
+                            c.name, fontSize = 13.sp, fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        )
+                    }
+                }
+            }
+        }
         Column(
-            Modifier.fillMaxSize().padding(start = 24.dp, end = 28.dp, top = 22.dp),
+            Modifier.fillMaxSize().padding(start = 10.dp, end = 24.dp, top = 22.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             GuideHeader(vm, selectedChannel, selectedBlock, now)
@@ -166,6 +192,8 @@ fun GuideScreen(vm: AppViewModel) {
                                 AndroidKeyEvent.KEYCODE_DPAD_LEFT -> {
                                     val prev = blocks.lastOrNull { it.end <= cur.start }
                                     when {
+                                        // At the left edge of the present: step out to the category list.
+                                        cur.start <= windowStart && windowStart <= floorHalfHour(now) -> false
                                         cur.start < windowStart && windowStart > earliest -> {
                                             windowStart -= HALF_HOUR
                                             anchor = maxOf(cur.start, windowStart)
@@ -180,7 +208,7 @@ fun GuideScreen(vm: AppViewModel) {
                                     }
                                 }
                                 // Up from the top row moves to the category switcher.
-                                AndroidKeyEvent.KEYCODE_DPAD_UP -> if (row > 0) { row--; true } else false
+                                AndroidKeyEvent.KEYCODE_DPAD_UP -> { if (row > 0) row--; true }
                                 AndroidKeyEvent.KEYCODE_DPAD_DOWN -> { if (row < channels.lastIndex) row++; true }
                                 AndroidKeyEvent.KEYCODE_CHANNEL_UP, AndroidKeyEvent.KEYCODE_PAGE_UP -> { row = (row - 8).coerceAtLeast(0); true }
                                 AndroidKeyEvent.KEYCODE_CHANNEL_DOWN, AndroidKeyEvent.KEYCODE_PAGE_DOWN -> { row = (row + 8).coerceAtMost(channels.lastIndex); true }
@@ -224,7 +252,7 @@ fun GuideScreen(vm: AppViewModel) {
 
                     Box(Modifier.fillMaxSize()) {
                         if (channels.isEmpty()) {
-                            Text("No channels in this category. Press ▲ to change category.", color = Palette.TextMuted, fontSize = 15.sp)
+                            Text("No channels in this category. Press ◀ to pick another category.", color = Palette.TextMuted, fontSize = 15.sp)
                         }
                         LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxSize()) {
                             itemsIndexed(channels, key = { _, c -> c.streamId }) { index, ch ->
@@ -291,24 +319,9 @@ private fun GuideHeader(vm: AppViewModel, channel: Channel?, block: Block?, now:
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(formatTime(now), color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
             val cat = vm.categoryList.firstOrNull { it.id == vm.selectedCategoryId }?.name.orEmpty()
-            FocusTile(
-                onClick = { vm.cycleCategory(1) }, corner = 10.dp, focusedScale = 1.04f,
-                modifier = Modifier.onPreviewKeyEvent { e ->
-                    if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    when (e.key.nativeKeyCode) {
-                        AndroidKeyEvent.KEYCODE_DPAD_LEFT -> { vm.cycleCategory(-1); true }
-                        AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> { vm.cycleCategory(1); true }
-                        else -> false
-                    }
-                },
-            ) {
-                Text(
-                    "◀  $cat  ▶", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
-                    modifier = Modifier.background(Color(0x1AFFFFFF), RoundedCornerShape(10.dp)).padding(horizontal = 14.dp, vertical = 6.dp),
-                )
-            }
+            Text(cat, color = Palette.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             vm.guideStatus?.let { Text(it, color = Palette.TextMuted, fontSize = 12.sp, maxLines = 2) }
-            Text("▲ from the top row: change category  ·  ◀◀ ▶▶ jump 2 hrs", color = Palette.TextMuted, fontSize = 11.sp)
+            Text("◀ categories  ·  ◀◀ ▶▶ jump 2 hrs", color = Palette.TextMuted, fontSize = 11.sp)
         }
     }
 }

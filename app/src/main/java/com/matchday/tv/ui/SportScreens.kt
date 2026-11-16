@@ -138,6 +138,13 @@ fun SportHubScreen(vm: AppViewModel) {
                 Text(SimpleDateFormat("EEEE d MMMM", Locale.UK).format(Date(now)), color = Palette.TextMuted, fontSize = 15.sp)
                 Spacer(Modifier.weight(1f))
                 vm.guideStatus?.let { Text(it, color = Palette.TextMuted, fontSize = 12.sp, modifier = Modifier.padding(end = 14.dp)) }
+                if (vm.updater.available) {
+                    FocusTile(onClick = { vm.navigate(Screen.Settings) }, corner = 10.dp, focusedScale = 1.05f) {
+                        Text("Update available", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Palette.Accent,
+                            modifier = Modifier.background(Color(0x1AFFFFFF), RoundedCornerShape(10.dp)).padding(horizontal = 16.dp, vertical = 8.dp))
+                    }
+                    Spacer(Modifier.width(10.dp))
+                }
                 FocusTile(onClick = { vm.navigate(Screen.Teams) }, corner = 10.dp, focusedScale = 1.05f,
                     modifier = if (featured == null && hub.followed.isNotEmpty()) Modifier.focusRequester(firstFocus) else Modifier) {
                     Text("My teams (${hub.followed.size})", fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
