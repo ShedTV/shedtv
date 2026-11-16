@@ -55,11 +55,11 @@ def main():
     for team in teams:
         if team["key"] in crests:
             continue
-        queries = [team["lookup"], team["name"].split(" (")[0]]
+        queries = [team["lookup"], team["name"].split(" (")[0]] + team.get("alt", [])
         chosen = None
         for q in dict.fromkeys(queries):
             chosen = pick(fetch(q), team)
-            time.sleep(3)
+            time.sleep(7)
             if chosen:
                 break
         badge = chosen and (chosen.get("strBadge") or chosen.get("strTeamBadge"))

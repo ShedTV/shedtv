@@ -105,7 +105,11 @@
   "key": "fb-forest",
   "lookup": "Nottingham Forest",
   "name": "Nottingham Forest",
-  "sport": "Soccer"
+  "sport": "Soccer",
+  "alt": [
+   "Nottingham Forest FC",
+   "Nottm Forest"
+  ]
  },
  {
   "key": "fb-sunderland",
@@ -147,7 +151,11 @@
   "key": "rl-hullfc",
   "lookup": "Hull FC",
   "name": "Hull FC",
-  "sport": "Rugby"
+  "sport": "Rugby",
+  "alt": [
+   "Hull F.C.",
+   "Hull FC Rugby League"
+  ]
  },
  {
   "key": "rl-hullkr",
@@ -159,7 +167,10 @@
   "key": "rl-leeds",
   "lookup": "Leeds Rhinos",
   "name": "Leeds Rhinos",
-  "sport": "Rugby"
+  "sport": "Rugby",
+  "alt": [
+   "Leeds Rhinos RLFC"
+  ]
  },
  {
   "key": "rl-leigh",

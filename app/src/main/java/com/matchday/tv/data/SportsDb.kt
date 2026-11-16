@@ -19,12 +19,18 @@ object SportsDb {
     private const val BASE = "https://www.thesportsdb.com/api/v1/json/123"
     private var lastCall = 0L
 
-    suspend fun searchTeams(query: String): List<Team> = withContext(Dispatchers.IO) {
+    /** Teams matching [query], or null if the service couldn't be reached (rate limit, offline). */
+    suspend fun searchTeams(query: String): List<Team>? = withContext(Dispatchers.IO) {
         throttle()
-        val url = "$BASE/searchteams.php?t=" + URLEncoder.encode(query.trim(), "UTF-8")
-        val body = XtreamClient.http.newCall(Request.Builder().url(url).header("User-Agent", USER_AGENT).build())
-            .execute().use { if (it.isSuccessful) it.body?.string() else null } ?: return@withContext emptyList()
-        val root = runCatching { Json.parseToJsonElement(body) as? JsonObject }.getOrNull() ?: return@withContext emptyList()
+        val url = "$BASE/searchteams.php?t=" + URLEncoder.encode(query.trim(), "UTF-8").replace("+", "%20")
+        val body = try {
+            XtreamClient.http.newCall(
+                Request.Builder().url(url).header("User-Agent", USER_AGENT).header("X-API-KEY", "123").build()
+            ).execute().use { if (it.isSuccessful) it.body?.string() else null }
+        } catch (e: Exception) {
+            null
+        } ?: return@withContext null
+        val root = runCatching { Json.parseToJsonElement(body) as? JsonObject }.getOrNull() ?: return@withContext null
         val teams = root["teams"] as? JsonArray ?: return@withContext emptyList()
         teams.mapNotNull { el ->
             val o = el as? JsonObject ?: return@mapNotNull null
@@ -54,18 +60,20 @@ object SportsDb {
         }
     }
 
-    /** Find a crest for one of our built-in teams. */
-    suspend fun badgeFor(team: Team): String? {
-        val results = runCatching { searchTeams(team.lookup) }.getOrDefault(emptyList())
+    class BadgeResult(val url: String?, val failed: Boolean)
+
+    /** Find a crest for a team; [BadgeResult.failed] means try again later. */
+    suspend fun badgeFor(team: Team): BadgeResult {
+        val results = searchTeams(team.lookup) ?: return BadgeResult(null, failed = true)
         val sameSport = results.filter { it.sport == team.sport }
         val best = sameSport.firstOrNull { it.name.equals(team.lookup, true) || it.name.equals(team.name, true) }
             ?: sameSport.firstOrNull { it.league.contains(if (team.sport == FOOTBALL) "Premier" else "Super League", true) }
             ?: sameSport.firstOrNull()
-        return best?.badge
+        return BadgeResult(best?.badge, failed = false)
     }
 
     private suspend fun throttle() {
-        val wait = lastCall + 2_100 - System.currentTimeMillis()
+        val wait = lastCall + 3_000 - System.currentTimeMillis()
         if (wait > 0) delay(wait)
         lastCall = System.currentTimeMillis()
     }

@@ -337,7 +337,8 @@ fun TeamPickerScreen(vm: AppViewModel) {
     Row(Modifier.fillMaxSize().background(Palette.Background).padding(start = 40.dp, end = 32.dp, top = 32.dp)) {
         Column(Modifier.width(240.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("MY TEAMS", color = Palette.Text, fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-            Text("OK to follow or unfollow", color = Palette.TextMuted, fontSize = 13.sp, modifier = Modifier.padding(bottom = 12.dp))
+            Text("OK to follow or unfollow", color = Palette.TextMuted, fontSize = 13.sp)
+            Text(hub.badgeStatus.orEmpty(), color = Palette.Accent, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(4.dp), modifier = Modifier.weight(1f)) {
                 itemsIndexed(tabs, key = { _, t -> t.first }) { i, (id, name) ->
                     FocusTile(

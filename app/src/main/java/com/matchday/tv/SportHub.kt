@@ -22,9 +22,22 @@ import kotlinx.coroutines.withContext
 class SportHub(app: Application, private val scope: CoroutineScope) {
     private val store = FollowedTeams(app)
 
+    /** Crests for the built-in teams, looked up at build time and shipped with the app. */
+    private val bundled: Map<String, String> = try {
+        val text = app.assets.open("crests.json").bufferedReader().use { it.readText() }
+        (kotlinx.serialization.json.Json.parseToJsonElement(text) as kotlinx.serialization.json.JsonObject)
+            .mapNotNull { (k, v) -> (v as? kotlinx.serialization.json.JsonPrimitive)?.content?.let { k to it } }.toMap()
+    } catch (e: Exception) {
+        emptyMap()
+    }
+
     var followed by mutableStateOf(store.load())
         private set
-    var badges by mutableStateOf(store.badges())
+    var badges by mutableStateOf(bundled + store.badges())
+        private set
+
+    /** Progress of crest lookups, shown in the team picker; null when idle. */
+    var badgeStatus by mutableStateOf<String?>(null)
         private set
     var live by mutableStateOf<List<Fixture>>(emptyList())
         private set
@@ -57,23 +70,33 @@ class SportHub(app: Application, private val scope: CoroutineScope) {
         teams.filter { badgeOf(it) == null }.forEach { badgeQueue.putIfAbsent(it.key, it) }
         if (badgeJob?.isActive == true || badgeQueue.isEmpty()) return
         badgeJob = scope.launch {
-            var misses = 0
-            while (badgeQueue.isNotEmpty() && misses < 5) {
+            var backoff = 0L
+            while (badgeQueue.isNotEmpty()) {
                 val key = badgeQueue.keys.first()
-                val team = badgeQueue.remove(key) ?: continue
-                val url = try { SportsDb.badgeFor(team) } catch (e: Exception) { null }
-                if (url != null) {
-                    misses = 0
-                    badges = badges + (key to url)
-                    store.saveBadges(badges)
-                    if (isFollowed(team)) {
-                        followed = followed.map { if (it.key == key) it.copy(badge = url) else it }
-                        store.save(followed)
+                val team = badgeQueue[key] ?: break
+                badgeStatus = "Finding crests… ${badgeQueue.size} to go"
+                val result = SportsDb.badgeFor(team)
+                when {
+                    result.url != null -> {
+                        badgeQueue.remove(key)
+                        backoff = 0
+                        badges = badges + (key to result.url)
+                        store.saveBadges(badges)
+                        if (isFollowed(team)) {
+                            followed = followed.map { if (it.key == key) it.copy(badge = result.url) else it }
+                            store.save(followed)
+                        }
                     }
-                } else {
-                    misses++ // stop early if the service is unreachable
+                    result.failed -> {
+                        // Rate-limited or offline: wait and try the same team again.
+                        backoff = (if (backoff == 0L) 20_000L else backoff * 2).coerceAtMost(180_000L)
+                        badgeStatus = "Crest service busy, retrying in ${backoff / 1000}s…"
+                        kotlinx.coroutines.delay(backoff)
+                    }
+                    else -> badgeQueue.remove(key) // genuinely not found; keep its colour badge
                 }
             }
+            badgeStatus = null
         }
     }
 
@@ -83,7 +106,7 @@ class SportHub(app: Application, private val scope: CoroutineScope) {
             searching = true
             searchMessage = null
             searchResults = try {
-                SportsDb.searchTeams(query)
+                SportsDb.searchTeams(query) ?: throw java.io.IOException("the team service is busy, try again in a minute")
             } catch (e: Exception) {
                 searchMessage = "Search isn't working right now (${e.message})."
                 emptyList()
