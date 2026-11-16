@@ -49,7 +49,14 @@ def pick(results, team):
 def league_lists():
     """Whole-league listings (the free key returns up to 10 teams per league)."""
     out = []
-    for lg in ["English Super League", "Super League", "English_Super_League", "English Premier League"]:
+    leagues = []
+    for probe in ["Wigan Warriors", "Hull Kingston Rovers"]:
+        for t in fetch(probe):
+            if t.get("strLeague") and t.get("strLeague") not in leagues and "Rugby" in (t.get("strSport") or ""):
+                leagues.append(t["strLeague"])
+                print(f"::warning::rugby league name from {probe}: {t['strLeague']} (sport {t.get('strSport')})")
+        time.sleep(7)
+    for lg in leagues:
         url = "https://www.thesportsdb.com/api/v1/json/123/search_all_teams.php?l=" + urllib.parse.quote(lg)
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "ShedTV crest builder", "X-API-KEY": "123"})
