@@ -43,15 +43,20 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.matchday.tv.data.Credentials
 
+/** Add or edit a subscription. Also the first-run sign-in screen. */
 @Composable
 fun LoginScreen(
-    initial: Credentials?,
+    initial: com.matchday.tv.data.Subscription?,
     error: String?,
-    onSubmit: (Credentials) -> Unit,
+    title: String,
+    onCancel: (() -> Unit)?,
+    onSubmit: (String, Credentials) -> Unit,
 ) {
+    var name by rememberSaveable { mutableStateOf(initial?.name.orEmpty()) }
     var server by rememberSaveable { mutableStateOf(initial?.server.orEmpty()) }
     var username by rememberSaveable { mutableStateOf(initial?.username.orEmpty()) }
     var password by rememberSaveable { mutableStateOf(initial?.password.orEmpty()) }
+    if (onCancel != null) androidx.activity.compose.BackHandler { onCancel() }
     val focus = LocalFocusManager.current
     val first = remember { FocusRequester() }
 
@@ -59,7 +64,7 @@ fun LoginScreen(
 
     fun submit() {
         if (server.isNotBlank() && username.isNotBlank() && password.isNotBlank()) {
-            onSubmit(Credentials(server.trim(), username.trim(), password))
+            onSubmit(name.trim(), Credentials(server.trim(), username.trim(), password))
         }
     }
 
@@ -74,8 +79,9 @@ fun LoginScreen(
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             ShedMark(84.dp)
             ShedTvWordmark(40)
+            Text(title, color = Palette.Accent, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Text(
-                "Sign in with your provider's Xtream Codes details.",
+                "Enter your provider's Xtream Codes details.",
                 color = Palette.TextSoft,
                 fontSize = 18.sp,
             )
@@ -86,8 +92,11 @@ fun LoginScreen(
             )
         }
 
-        Column(Modifier.width(440.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Field("Server address", server, { server = it }, Modifier.focusRequester(first), KeyboardType.Uri) {
+        Column(Modifier.width(440.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Field("Name (e.g. Main sub, Backup sub)", name, { name = it }, Modifier.focusRequester(first), KeyboardType.Text) {
+                focus.moveFocus(FocusDirection.Down)
+            }
+            Field("Server address", server, { server = it }, Modifier, KeyboardType.Uri) {
                 focus.moveFocus(FocusDirection.Down)
             }
             Field("Username", username, { username = it }, Modifier, KeyboardType.Text) {
@@ -100,8 +109,15 @@ fun LoginScreen(
                 Text(error, color = Palette.Live, fontSize = 15.sp)
             }
             Spacer(Modifier.height(4.dp))
-            Button(onClick = { submit() }) {
-                Text("Sign in", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Button(onClick = { submit() }) {
+                    Text("Save and connect", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp))
+                }
+                if (onCancel != null) {
+                    Button(onClick = onCancel) {
+                        Text("Cancel", fontSize = 18.sp, modifier = Modifier.padding(horizontal = 12.dp))
+                    }
+                }
             }
         }
     }

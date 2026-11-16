@@ -63,7 +63,6 @@ import androidx.media3.ui.PlayerView
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.matchday.tv.AppViewModel
-import com.matchday.tv.data.USER_AGENT
 import com.matchday.tv.data.nowAndNext
 import com.matchday.tv.player.FrameRateMatcher
 import kotlinx.coroutines.delay
@@ -88,7 +87,7 @@ fun PlayerScreen(vm: AppViewModel) {
 
     val player = remember {
         val http = DefaultHttpDataSource.Factory()
-            .setUserAgent(USER_AGENT)
+            .setUserAgent(com.matchday.tv.data.UserAgents.current)
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(10_000)
             .setReadTimeoutMs(15_000)

@@ -28,8 +28,9 @@ class Library(
     app: Application,
     private val scope: CoroutineScope,
     private val client: () -> XtreamClient?,
+    subscriptionId: () -> String,
 ) {
-    private val history = WatchHistory(app)
+    private val history = WatchHistory(app, subscriptionId)
 
     /** Bumped whenever resume points change, so screens re-read them. */
     var historyVersion by mutableIntStateOf(0)

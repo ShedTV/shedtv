@@ -15,6 +15,8 @@ import com.matchday.tv.data.Credentials
 import com.matchday.tv.data.EpgEntry
 import com.matchday.tv.data.EpgRepository
 import com.matchday.tv.data.Prefs
+import com.matchday.tv.data.Subscription
+import com.matchday.tv.data.UserAgents
 import com.matchday.tv.data.XtreamClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,6 +36,8 @@ sealed interface Screen {
     data object SeriesDetails : Screen
     data object VodPlayer : Screen
     data object Player : Screen
+    data object Settings : Screen
+    data object EditSubscription : Screen
 }
 
 const val CATEGORY_FAVOURITES = "__fav"
@@ -56,10 +60,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private var allChannels by mutableStateOf<List<Channel>>(emptyList())
     var selectedCategoryId by mutableStateOf(CATEGORY_ALL)
         private set
-    var favourites by mutableStateOf(prefs.favourites)
+    /** All saved provider logins, and the one in use. */
+    var subscriptions by mutableStateOf(prefs.subscriptions)
         private set
-    var streamFormat by mutableStateOf(prefs.streamFormat)
+    var activeSubscription by mutableStateOf(prefs.active)
         private set
+    /** Subscription being edited in the form; null when adding a new one. */
+    var editingSubscription by mutableStateOf<Subscription?>(null)
+        private set
+
+    var favourites by mutableStateOf(activeSubscription?.let { prefs.favourites(it.id) } ?: emptySet())
+        private set
+    val streamFormat: String get() = activeSubscription?.streamFormat ?: "ts"
 
     /** Channel that had focus in the list, so focus returns there after watching. */
     var lastFocusedChannelId by mutableStateOf<String?>(null)
@@ -81,7 +93,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val sport = SportHub(app, viewModelScope)
 
     /** Movies and series. */
-    val library = Library(app, viewModelScope) { client }
+    val library = Library(app, viewModelScope, { client }, { activeSubscription?.id ?: "none" })
 
     /** Where Back from the player returns to. */
     private var returnScreen: Screen = Screen.Live
@@ -92,7 +104,6 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private set
     private var previousIndex: Int? = null
 
-    val savedCredentials: Credentials? get() = prefs.credentials
 
     val visibleChannels: List<Channel> by derivedStateOf {
         when (selectedCategoryId) {
@@ -116,18 +127,103 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val channels: List<Channel> get() = allChannels
 
     init {
-        prefs.credentials?.let { connect(it, save = false) }
+        activeSubscription?.let { connect(it) }
     }
 
-    fun connect(credentials: Credentials, save: Boolean = true) {
+    /** Save a new or edited subscription from the form, then connect to it. */
+    fun saveSubscription(name: String, credentials: Credentials) {
+        val editing = editingSubscription
+        val sub = (editing ?: Subscription(id = Prefs.newId(), name = "", server = "", username = "", password = "")).copy(
+            name = name.ifBlank { editing?.name ?: "Subscription ${subscriptions.size + 1}" },
+            server = XtreamClient.normaliseServer(credentials.server),
+            username = credentials.username,
+            password = credentials.password,
+        )
+        connect(sub, saveOnSuccess = true)
+    }
+
+    fun startAddSubscription() {
+        editingSubscription = null
         error = null
+        screen = Screen.EditSubscription
+    }
+
+    fun startEditSubscription(sub: Subscription) {
+        editingSubscription = sub
+        error = null
+        screen = Screen.EditSubscription
+    }
+
+    fun cancelEdit() {
+        error = null
+        editingSubscription = null
+        screen = if (client != null) Screen.Settings else Screen.Login
+    }
+
+    fun switchSubscription(sub: Subscription) {
+        if (sub.id == activeSubscription?.id && client != null) return
+        connect(sub, saveOnSuccess = false)
+    }
+
+    fun removeSubscription(sub: Subscription) {
+        subscriptions = subscriptions.filterNot { it.id == sub.id }
+        prefs.subscriptions = subscriptions
+        if (sub.id == activeSubscription?.id) {
+            clearSession()
+            activeSubscription = null
+            prefs.activeId = null
+            val next = subscriptions.firstOrNull()
+            if (next != null) connect(next) else screen = Screen.Login
+        }
+    }
+
+    /** Change the user agent or stream format of the active subscription. */
+    fun updateActive(userAgent: String? = null, streamFormat: String? = null) {
+        val sub = activeSubscription ?: return
+        val updated = sub.copy(
+            userAgent = userAgent?.trim()?.ifBlank { null } ?: sub.userAgent,
+            streamFormat = streamFormat ?: sub.streamFormat,
+        )
+        persist(updated)
+        activeSubscription = updated
+        UserAgents.current = updated.userAgent
+    }
+
+    private fun persist(sub: Subscription) {
+        subscriptions = if (subscriptions.any { it.id == sub.id }) subscriptions.map { if (it.id == sub.id) sub else it } else subscriptions + sub
+        prefs.subscriptions = subscriptions
+    }
+
+    private fun clearSession() {
+        client = null
+        allChannels = emptyList()
+        categories = emptyList()
+        epg.clear()
+        guideJob?.cancel()
+        guide = emptyMap()
+        guideStatus = null
+        library.reset()
+        playlist = emptyList()
+        lastFocusedChannelId = null
+    }
+
+    private fun connect(sub: Subscription, saveOnSuccess: Boolean = false) {
+        error = null
+        val previous = activeSubscription
+        val hadSession = client != null
         screen = Screen.Loading
         viewModelScope.launch {
             try {
-                val c = XtreamClient(credentials)
-                loadingMessage = "Signing in…"
+                UserAgents.current = sub.userAgent
+                val c = XtreamClient(sub.credentials)
+                loadingMessage = "Signing in to ${sub.name}…"
                 c.login()
-                if (save) prefs.credentials = c.creds
+                clearSession()
+                if (saveOnSuccess) persist(sub)
+                activeSubscription = sub
+                prefs.activeId = sub.id
+                favourites = prefs.favourites(sub.id)
+                editingSubscription = null
                 loadingMessage = "Loading channels…"
                 val cats = c.liveCategories()
                 val chans = c.liveStreams()
@@ -142,23 +238,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 screen = Screen.Sport
                 loadGuide()
             } catch (e: Exception) {
-                error = e.message ?: "Couldn't connect to the provider."
-                screen = Screen.Login
+                error = "${sub.name}: " + (e.message ?: "couldn't connect to the provider.")
+                UserAgents.current = previous?.userAgent ?: UserAgents.DEFAULT
+                screen = when {
+                    saveOnSuccess -> Screen.EditSubscription
+                    hadSession || subscriptions.size > 1 -> Screen.Settings
+                    else -> {
+                        editingSubscription = sub
+                        Screen.EditSubscription
+                    }
+                }
             }
         }
-    }
-
-    fun signOut() {
-        prefs.credentials = null
-        client = null
-        allChannels = emptyList()
-        categories = emptyList()
-        epg.clear()
-        guideJob?.cancel()
-        guide = emptyMap()
-        guideStatus = null
-        library.reset()
-        screen = Screen.Login
     }
 
     fun selectCategory(id: String) {
@@ -175,12 +266,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun toggleFavourite(channel: Channel) {
         favourites = if (isFavourite(channel)) favourites - channel.streamId else favourites + channel.streamId
-        prefs.favourites = favourites
+        activeSubscription?.let { prefs.setFavourites(it.id, favourites) }
     }
 
     fun toggleStreamFormat() {
-        streamFormat = if (streamFormat == "ts") "m3u8" else "ts"
-        prefs.streamFormat = streamFormat
+        updateActive(streamFormat = if (streamFormat == "ts") "m3u8" else "ts")
     }
 
     fun loadEpg(channel: Channel, force: Boolean = false) {
@@ -229,7 +319,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val ids = allChannels.mapNotNullTo(HashSet()) { it.epgId?.trim()?.lowercase()?.takeIf { id -> id.isNotEmpty() } }
         guideJob = viewModelScope.launch {
             try {
-                val data = epgRepository.load(c, ids, force) { msg ->
+                val data = epgRepository.load(c, activeSubscription?.id ?: "none", ids, force) { msg ->
                     withContext(Dispatchers.Main) { guideStatus = msg }
                 }
                 guide = data

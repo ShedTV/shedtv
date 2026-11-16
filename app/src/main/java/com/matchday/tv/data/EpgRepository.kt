@@ -12,11 +12,12 @@ class EpgRepository(private val context: Context) {
 
     suspend fun load(
         client: XtreamClient,
+        subscriptionId: String,
         channelIds: Set<String>,
         force: Boolean,
         progress: suspend (String) -> Unit,
     ): Map<String, List<EpgEntry>> = withContext(Dispatchers.IO) {
-        val file = File(context.cacheDir, "guide-${client.creds.username.hashCode()}.xml")
+        val file = File(context.cacheDir, "guide-$subscriptionId.xml")
         val age = System.currentTimeMillis() - file.lastModified()
         val fresh = file.exists() && file.length() > 1024 && age < MAX_AGE_MS
         if (force || !fresh) {
@@ -30,7 +31,7 @@ class EpgRepository(private val context: Context) {
 
     private fun download(url: String, target: File) {
         val tmp = File(target.parentFile, target.name + ".part")
-        val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
+        val request = Request.Builder().url(url).header("User-Agent", UserAgents.current).build()
         XtreamClient.http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("guide download failed (HTTP ${response.code})")
             val body = response.body ?: throw IOException("guide download was empty")

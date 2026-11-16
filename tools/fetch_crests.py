@@ -56,6 +56,7 @@ def league_lists():
                 leagues.append(t["strLeague"])
                 print(f"::warning::rugby league name from {probe}: {t['strLeague']} (sport {t.get('strSport')})")
         time.sleep(7)
+    leagues += ["English League Championship", "English League 1", "English League 2"]
     for lg in leagues:
         url = "https://www.thesportsdb.com/api/v1/json/123/search_all_teams.php?l=" + urllib.parse.quote(lg)
         try:

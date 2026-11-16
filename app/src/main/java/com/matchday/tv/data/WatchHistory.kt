@@ -11,11 +11,11 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 
 /** Resume points for movies and episodes, newest first. */
-class WatchHistory(context: Context) {
+class WatchHistory(context: Context, private val subscriptionId: () -> String) {
     private val sp = context.getSharedPreferences("matchday_history", Context.MODE_PRIVATE)
 
     fun all(): List<WatchEntry> {
-        val raw = sp.getString(KEY, null) ?: return emptyList()
+        val raw = sp.getString(KEY + "_" + subscriptionId(), null) ?: sp.getString(KEY, null) ?: return emptyList()
         return try {
             (Json.parseToJsonElement(raw) as JsonArray).mapNotNull { el ->
                 val o = el as? JsonObject ?: return@mapNotNull null
@@ -56,7 +56,7 @@ class WatchHistory(context: Context) {
                 })
             }
         }
-        sp.edit().putString(KEY, arr.toString()).apply()
+        sp.edit().putString(KEY + "_" + subscriptionId(), arr.toString()).remove(KEY).apply()
     }
 
     private fun JsonObject.s(k: String) = (this[k] as? JsonPrimitive)?.contentOrNull

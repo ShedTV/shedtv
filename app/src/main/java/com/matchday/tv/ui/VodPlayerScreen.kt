@@ -61,7 +61,6 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.matchday.tv.AppViewModel
 import com.matchday.tv.data.Playable
-import com.matchday.tv.data.USER_AGENT
 import com.matchday.tv.player.FrameRateMatcher
 import kotlinx.coroutines.delay
 
@@ -88,7 +87,7 @@ fun VodPlayerScreen(vm: AppViewModel) {
 
     val player = remember {
         val http = DefaultHttpDataSource.Factory()
-            .setUserAgent(USER_AGENT)
+            .setUserAgent(com.matchday.tv.data.UserAgents.current)
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(15_000)
             .setReadTimeoutMs(30_000)

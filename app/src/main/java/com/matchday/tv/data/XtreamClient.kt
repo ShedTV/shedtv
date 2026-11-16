@@ -15,7 +15,8 @@ import java.io.IOException
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
-const val USER_AGENT = "ShedTV/0.1 (Android TV)"
+/** Fixed agent for non-provider services (crest lookups). */
+const val USER_AGENT = "Mozilla/5.0 (Linux; Android 9; AFTKA) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 
 /** Talks to an Xtream Codes compatible provider. */
 class XtreamClient(credentials: Credentials) {
@@ -33,7 +34,7 @@ class XtreamClient(credentials: Credentials) {
     }
 
     private suspend fun get(url: String): JsonElement = withContext(Dispatchers.IO) {
-        val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
+        val request = Request.Builder().url(url).header("User-Agent", UserAgents.current).build()
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("Provider returned HTTP ${response.code}")
             val body = response.body?.string().orEmpty()

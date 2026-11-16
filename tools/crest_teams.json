@@ -249,5 +249,437 @@
   "lookup": "England Rugby League",
   "name": "England (rugby league)",
   "sport": "Rugby"
+ },
+ {
+  "key": "fb-birmingham",
+  "lookup": "Birmingham City",
+  "name": "Birmingham City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-blackburn",
+  "lookup": "Blackburn Rovers",
+  "name": "Blackburn Rovers",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-bolton",
+  "lookup": "Bolton Wanderers",
+  "name": "Bolton Wanderers",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-bristolcity",
+  "lookup": "Bristol City",
+  "name": "Bristol City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-burnley",
+  "lookup": "Burnley",
+  "name": "Burnley",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-cardiff",
+  "lookup": "Cardiff City",
+  "name": "Cardiff City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-charlton",
+  "lookup": "Charlton Athletic",
+  "name": "Charlton Athletic",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-derby",
+  "lookup": "Derby County",
+  "name": "Derby County",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-lincoln",
+  "lookup": "Lincoln City",
+  "name": "Lincoln City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-boro",
+  "lookup": "Middlesbrough",
+  "name": "Middlesbrough",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-millwall",
+  "lookup": "Millwall",
+  "name": "Millwall",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-norwich",
+  "lookup": "Norwich City",
+  "name": "Norwich City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-portsmouth",
+  "lookup": "Portsmouth",
+  "name": "Portsmouth",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-preston",
+  "lookup": "Preston North End",
+  "name": "Preston North End",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-qpr",
+  "lookup": "Queens Park Rangers",
+  "name": "Queens Park Rangers",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-sheffutd",
+  "lookup": "Sheffield United",
+  "name": "Sheffield United",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-southampton",
+  "lookup": "Southampton",
+  "name": "Southampton",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-stoke",
+  "lookup": "Stoke City",
+  "name": "Stoke City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-swansea",
+  "lookup": "Swansea City",
+  "name": "Swansea City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-watford",
+  "lookup": "Watford",
+  "name": "Watford",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-westbrom",
+  "lookup": "West Bromwich Albion",
+  "name": "West Bromwich Albion",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-westham",
+  "lookup": "West Ham United",
+  "name": "West Ham United",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-wolves",
+  "lookup": "Wolverhampton Wanderers",
+  "name": "Wolverhampton Wanderers",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-wrexham",
+  "lookup": "Wrexham",
+  "name": "Wrexham",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-wimbledon",
+  "lookup": "AFC Wimbledon",
+  "name": "AFC Wimbledon",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-barnsley",
+  "lookup": "Barnsley",
+  "name": "Barnsley",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-blackpool",
+  "lookup": "Blackpool",
+  "name": "Blackpool",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-bradfordcity",
+  "lookup": "Bradford City",
+  "name": "Bradford City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-bromley",
+  "lookup": "Bromley",
+  "name": "Bromley",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-burton",
+  "lookup": "Burton Albion",
+  "name": "Burton Albion",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-cambridge",
+  "lookup": "Cambridge United",
+  "name": "Cambridge United",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-doncaster",
+  "lookup": "Doncaster Rovers",
+  "name": "Doncaster Rovers",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-huddtown",
+  "lookup": "Huddersfield Town",
+  "name": "Huddersfield Town",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-leicester",
+  "lookup": "Leicester City",
+  "name": "Leicester City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-orient",
+  "lookup": "Leyton Orient",
+  "name": "Leyton Orient",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-luton",
+  "lookup": "Luton Town",
+  "name": "Luton Town",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-mansfield",
+  "lookup": "Mansfield Town",
+  "name": "Mansfield Town",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-mkdons",
+  "lookup": "Milton Keynes Dons",
+  "name": "Milton Keynes Dons",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-nottscounty",
+  "lookup": "Notts County",
+  "name": "Notts County",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-oxford",
+  "lookup": "Oxford United",
+  "name": "Oxford United",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-peterborough",
+  "lookup": "Peterborough United",
+  "name": "Peterborough United",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-plymouth",
+  "lookup": "Plymouth Argyle",
+  "name": "Plymouth Argyle",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-reading",
+  "lookup": "Reading",
+  "name": "Reading",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-sheffwed",
+  "lookup": "Sheffield Wednesday",
+  "name": "Sheffield Wednesday",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-stevenage",
+  "lookup": "Stevenage",
+  "name": "Stevenage",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-stockport",
+  "lookup": "Stockport County",
+  "name": "Stockport County",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-wiganath",
+  "lookup": "Wigan Athletic",
+  "name": "Wigan Athletic",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-wycombe",
+  "lookup": "Wycombe Wanderers",
+  "name": "Wycombe Wanderers",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-accrington",
+  "lookup": "Accrington Stanley",
+  "name": "Accrington Stanley",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-barnet",
+  "lookup": "Barnet",
+  "name": "Barnet",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-bristolrovers",
+  "lookup": "Bristol Rovers",
+  "name": "Bristol Rovers",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-cheltenham",
+  "lookup": "Cheltenham Town",
+  "name": "Cheltenham Town",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-chesterfield",
+  "lookup": "Chesterfield",
+  "name": "Chesterfield",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-colchester",
+  "lookup": "Colchester United",
+  "name": "Colchester United",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-crawley",
+  "lookup": "Crawley Town",
+  "name": "Crawley Town",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-crewe",
+  "lookup": "Crewe Alexandra",
+  "name": "Crewe Alexandra",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-exeter",
+  "lookup": "Exeter City",
+  "name": "Exeter City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-fleetwood",
+  "lookup": "Fleetwood Town",
+  "name": "Fleetwood Town",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-gillingham",
+  "lookup": "Gillingham",
+  "name": "Gillingham",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-grimsby",
+  "lookup": "Grimsby Town",
+  "name": "Grimsby Town",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-newport",
+  "lookup": "Newport County",
+  "name": "Newport County",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-northampton",
+  "lookup": "Northampton Town",
+  "name": "Northampton Town",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-oldham",
+  "lookup": "Oldham Athletic",
+  "name": "Oldham Athletic",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-portvale",
+  "lookup": "Port Vale",
+  "name": "Port Vale",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-rochdale",
+  "lookup": "Rochdale",
+  "name": "Rochdale",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-rotherham",
+  "lookup": "Rotherham United",
+  "name": "Rotherham United",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-salford",
+  "lookup": "Salford City",
+  "name": "Salford City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-shrewsbury",
+  "lookup": "Shrewsbury Town",
+  "name": "Shrewsbury Town",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-swindon",
+  "lookup": "Swindon Town",
+  "name": "Swindon Town",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-tranmere",
+  "lookup": "Tranmere Rovers",
+  "name": "Tranmere Rovers",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-walsall",
+  "lookup": "Walsall",
+  "name": "Walsall",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-yorkcity",
+  "lookup": "York City",
+  "name": "York City",
+  "sport": "Soccer"
  }
 ]

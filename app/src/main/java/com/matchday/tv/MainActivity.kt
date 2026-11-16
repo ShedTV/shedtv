@@ -9,6 +9,7 @@ import com.matchday.tv.ui.MovieDetailsScreen
 import com.matchday.tv.ui.MoviesScreen
 import com.matchday.tv.ui.SeriesDetailsScreen
 import com.matchday.tv.ui.SeriesScreen
+import com.matchday.tv.ui.SettingsScreen
 import com.matchday.tv.ui.SportHubScreen
 import com.matchday.tv.ui.TeamPickerScreen
 import com.matchday.tv.ui.VodPlayerScreen
@@ -34,10 +35,20 @@ class MainActivity : ComponentActivity() {
 private fun App(vm: AppViewModel = viewModel()) {
     when (vm.screen) {
         Screen.Login -> LoginScreen(
-            initial = vm.savedCredentials,
+            initial = vm.editingSubscription,
             error = vm.error,
-            onSubmit = { vm.connect(it) },
+            title = "Add your subscription",
+            onCancel = null,
+            onSubmit = { name, creds -> vm.saveSubscription(name, creds) },
         )
+        Screen.EditSubscription -> LoginScreen(
+            initial = vm.editingSubscription,
+            error = vm.error,
+            title = if (vm.editingSubscription == null) "Add a subscription" else "Edit subscription",
+            onCancel = if (vm.subscriptions.isEmpty()) null else ({ vm.cancelEdit() }),
+            onSubmit = { name, creds -> vm.saveSubscription(name, creds) },
+        )
+        Screen.Settings -> SettingsScreen(vm)
         Screen.Loading -> LoadingScreen(vm.loadingMessage)
         Screen.Sport -> SportHubScreen(vm)
         Screen.Teams -> TeamPickerScreen(vm)

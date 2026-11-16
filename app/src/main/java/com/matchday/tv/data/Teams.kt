@@ -37,6 +37,9 @@ data class League(val id: String, val name: String, val sport: String, val teams
 private fun fb(id: String, name: String, short: String, colour: Long, text: Long, vararg aliases: String, lookup: String = name) =
     Team("fb-$id", name, short, FOOTBALL, "Premier League", listOf(name) + aliases, colour, text, lookup = lookup)
 
+private fun efl(id: String, name: String, short: String, league: String, colour: Long, text: Long, vararg aliases: String) =
+    Team("fb-$id", name, short, FOOTBALL, league, listOf(name) + aliases, colour, text)
+
 private fun rl(id: String, name: String, short: String, colour: Long, text: Long, vararg aliases: String, lookup: String = name) =
     Team("rl-$id", name, short, RUGBY_LEAGUE, "Super League", listOf(name) + aliases, colour, text, lookup = lookup)
 
@@ -70,6 +73,93 @@ object TeamsCatalog {
         )
     )
 
+    val championship = League(
+        "ch", "Championship 2026/27", FOOTBALL, listOf(
+            efl("birmingham", "Birmingham City", "BIR", "Championship", 0xFF0000FF, 0xFFFFFFFF, "Birmingham"),
+            efl("blackburn", "Blackburn Rovers", "BLB", "Championship", 0xFF009EE0, 0xFFFFFFFF, "Blackburn"),
+            efl("bolton", "Bolton Wanderers", "BOL", "Championship", 0xFFF2F2F2, 0xFF1C2C5B, "Bolton"),
+            efl("bristolcity", "Bristol City", "BRC", "Championship", 0xFFE21A23, 0xFFFFFFFF),
+            efl("burnley", "Burnley", "BUR", "Championship", 0xFF6C1D45, 0xFF99D6EA),
+            efl("cardiff", "Cardiff City", "CAR", "Championship", 0xFF0070B5, 0xFFFFFFFF, "Cardiff"),
+            efl("charlton", "Charlton Athletic", "CHA", "Championship", 0xFFD4021D, 0xFFFFFFFF, "Charlton"),
+            efl("derby", "Derby County", "DER", "Championship", 0xFFF2F2F2, 0xFF000000, "Derby"),
+            efl("lincoln", "Lincoln City", "LIN", "Championship", 0xFFD71920, 0xFFFFFFFF, "Lincoln"),
+            efl("boro", "Middlesbrough", "MID", "Championship", 0xFFE11B22, 0xFFFFFFFF, "Boro"),
+            efl("millwall", "Millwall", "MIL", "Championship", 0xFF001E50, 0xFFFFFFFF),
+            efl("norwich", "Norwich City", "NOR", "Championship", 0xFFFFF200, 0xFF00A650, "Norwich"),
+            efl("portsmouth", "Portsmouth", "POR", "Championship", 0xFF001489, 0xFFFFFFFF, "Pompey"),
+            efl("preston", "Preston North End", "PNE", "Championship", 0xFFF2F2F2, 0xFF001489, "Preston"),
+            efl("qpr", "Queens Park Rangers", "QPR", "Championship", 0xFF1D5BA4, 0xFFFFFFFF, "QPR"),
+            efl("sheffutd", "Sheffield United", "SHU", "Championship", 0xFFEE2737, 0xFFFFFFFF, "Sheff Utd", "Sheffield Utd"),
+            efl("southampton", "Southampton", "SOU", "Championship", 0xFFD71920, 0xFFFFFFFF, "Saints FC"),
+            efl("stoke", "Stoke City", "STK", "Championship", 0xFFE03A3E, 0xFFFFFFFF, "Stoke"),
+            efl("swansea", "Swansea City", "SWA", "Championship", 0xFFF2F2F2, 0xFF000000, "Swansea"),
+            efl("watford", "Watford", "WAT", "Championship", 0xFFFBEE23, 0xFF11210C),
+            efl("westbrom", "West Bromwich Albion", "WBA", "Championship", 0xFF122F67, 0xFFFFFFFF, "West Brom", "WBA"),
+            efl("westham", "West Ham United", "WHU", "Championship", 0xFF7A263A, 0xFF1BB1E7, "West Ham"),
+            efl("wolves", "Wolverhampton Wanderers", "WOL", "Championship", 0xFFFDB913, 0xFF231F20, "Wolves"),
+            efl("wrexham", "Wrexham", "WRE", "Championship", 0xFFE30613, 0xFFFFFFFF, "Wrexham AFC"),
+        )
+    )
+
+    val leagueOne = League(
+        "l1", "League One 2026/27", FOOTBALL, listOf(
+            efl("wimbledon", "AFC Wimbledon", "WIM", "League One", 0xFF0E2B8C, 0xFFF5D130, "Wimbledon"),
+            efl("barnsley", "Barnsley", "BAR", "League One", 0xFFD71920, 0xFFFFFFFF),
+            efl("blackpool", "Blackpool", "BPL", "League One", 0xFFF68712, 0xFFFFFFFF),
+            efl("bradfordcity", "Bradford City", "BFD", "League One", 0xFF7A1E3C, 0xFFF5B700),
+            efl("bromley", "Bromley", "BRO", "League One", 0xFFF2F2F2, 0xFF000000),
+            efl("burton", "Burton Albion", "BRT", "League One", 0xFFFFD100, 0xFF000000, "Burton"),
+            efl("cambridge", "Cambridge United", "CAM", "League One", 0xFFFDB913, 0xFF000000, "Cambridge Utd", "Cambridge"),
+            efl("doncaster", "Doncaster Rovers", "DON", "League One", 0xFFE21A23, 0xFFFFFFFF, "Doncaster"),
+            efl("huddtown", "Huddersfield Town", "HUD", "League One", 0xFF0E63AD, 0xFFFFFFFF, "Huddersfield Town AFC"),
+            efl("leicester", "Leicester City", "LEI", "League One", 0xFF003090, 0xFFFDBE11, "Leicester"),
+            efl("orient", "Leyton Orient", "LEY", "League One", 0xFFD71920, 0xFFFFFFFF, "Orient"),
+            efl("luton", "Luton Town", "LUT", "League One", 0xFFF78F1E, 0xFF002D62, "Luton"),
+            efl("mansfield", "Mansfield Town", "MAN", "League One", 0xFFF5A300, 0xFF003DA5, "Mansfield"),
+            efl("mkdons", "Milton Keynes Dons", "MKD", "League One", 0xFFF2F2F2, 0xFF000000, "MK Dons"),
+            efl("nottscounty", "Notts County", "NCO", "League One", 0xFF000000, 0xFFFFFFFF),
+            efl("oxford", "Oxford United", "OXF", "League One", 0xFFFFD100, 0xFF001E50, "Oxford Utd", "Oxford"),
+            efl("peterborough", "Peterborough United", "PET", "League One", 0xFF0055A4, 0xFFFFFFFF, "Peterborough", "Posh"),
+            efl("plymouth", "Plymouth Argyle", "PLY", "League One", 0xFF00483A, 0xFFFFFFFF, "Plymouth"),
+            efl("reading", "Reading", "REA", "League One", 0xFF004494, 0xFFFFFFFF),
+            efl("sheffwed", "Sheffield Wednesday", "SHW", "League One", 0xFF0E4C92, 0xFFFFFFFF, "Sheff Wed", "Sheffield Wed"),
+            efl("stevenage", "Stevenage", "STE", "League One", 0xFFF2F2F2, 0xFFE30613),
+            efl("stockport", "Stockport County", "STO", "League One", 0xFF0047AB, 0xFFFFFFFF, "Stockport"),
+            efl("wiganath", "Wigan Athletic", "WGA", "League One", 0xFF1D59AF, 0xFFFFFFFF, "Wigan Ath"),
+            efl("wycombe", "Wycombe Wanderers", "WYC", "League One", 0xFF7EB6E5, 0xFF001E50, "Wycombe"),
+        )
+    )
+
+    val leagueTwo = League(
+        "l2", "League Two 2026/27", FOOTBALL, listOf(
+            efl("accrington", "Accrington Stanley", "ACC", "League Two", 0xFFE30613, 0xFFFFFFFF, "Accrington"),
+            efl("barnet", "Barnet", "BNT", "League Two", 0xFFF5A300, 0xFF000000),
+            efl("bristolrovers", "Bristol Rovers", "BRR", "League Two", 0xFF00539F, 0xFFFFFFFF),
+            efl("cheltenham", "Cheltenham Town", "CHL", "League Two", 0xFFE30613, 0xFFFFFFFF, "Cheltenham"),
+            efl("chesterfield", "Chesterfield", "CHF", "League Two", 0xFF0047AB, 0xFFFFFFFF),
+            efl("colchester", "Colchester United", "COL", "League Two", 0xFF0055A4, 0xFFFFFFFF, "Colchester Utd", "Colchester"),
+            efl("crawley", "Crawley Town", "CRA", "League Two", 0xFFD71920, 0xFFFFFFFF, "Crawley"),
+            efl("crewe", "Crewe Alexandra", "CRE", "League Two", 0xFFE30613, 0xFFFFFFFF, "Crewe"),
+            efl("exeter", "Exeter City", "EXE", "League Two", 0xFFE30613, 0xFFFFFFFF, "Exeter"),
+            efl("fleetwood", "Fleetwood Town", "FLE", "League Two", 0xFFE30613, 0xFFFFFFFF, "Fleetwood"),
+            efl("gillingham", "Gillingham", "GIL", "League Two", 0xFF0047AB, 0xFFFFFFFF),
+            efl("grimsby", "Grimsby Town", "GRI", "League Two", 0xFF000000, 0xFFFFFFFF, "Grimsby"),
+            efl("newport", "Newport County", "NPT", "League Two", 0xFFF5A300, 0xFF000000, "Newport"),
+            efl("northampton", "Northampton Town", "NTN", "League Two", 0xFF7A1E3C, 0xFFFFFFFF, "Northampton"),
+            efl("oldham", "Oldham Athletic", "OLD", "League Two", 0xFF0055A4, 0xFFFFFFFF, "Oldham"),
+            efl("portvale", "Port Vale", "PVA", "League Two", 0xFFF2F2F2, 0xFF000000),
+            efl("rochdale", "Rochdale", "ROC", "League Two", 0xFF0047AB, 0xFFFFFFFF, "Rochdale AFC"),
+            efl("rotherham", "Rotherham United", "ROT", "League Two", 0xFFE30613, 0xFFFFFFFF, "Rotherham Utd", "Rotherham"),
+            efl("salford", "Salford City", "SAL", "League Two", 0xFFE30613, 0xFFFFFFFF, "Salford"),
+            efl("shrewsbury", "Shrewsbury Town", "SHR", "League Two", 0xFF0055A4, 0xFFF5A300, "Shrewsbury"),
+            efl("swindon", "Swindon Town", "SWI", "League Two", 0xFFE30613, 0xFFFFFFFF, "Swindon"),
+            efl("tranmere", "Tranmere Rovers", "TRA", "League Two", 0xFFF2F2F2, 0xFF0055A4, "Tranmere"),
+            efl("walsall", "Walsall", "WAL", "League Two", 0xFFE30613, 0xFFFFFFFF),
+            efl("yorkcity", "York City", "YKC", "League Two", 0xFF0055A4, 0xFFFFFFFF),
+        )
+    )
+
     val superLeague = League(
         "sl", "Super League 2026", RUGBY_LEAGUE, listOf(
             rl("bradford", "Bradford Bulls", "BRA", 0xFF1A1A1A, 0xFFE31B23, "Bradford"),
@@ -100,7 +190,7 @@ object TeamsCatalog {
         )
     )
 
-    val leagues = listOf(premierLeague, superLeague, internationals)
+    val leagues = listOf(premierLeague, championship, leagueOne, leagueTwo, superLeague, internationals)
     val all: List<Team> = leagues.flatMap { it.teams }
 }
 
