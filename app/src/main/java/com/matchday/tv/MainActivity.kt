@@ -4,6 +4,32 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.nativeKeyCode
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Text
+import com.matchday.tv.ui.Palette
+import com.matchday.tv.ui.TeamBadge
+import com.matchday.tv.ui.formatTime
+import kotlinx.coroutines.delay
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.matchday.tv.ui.MovieDetailsScreen
 import com.matchday.tv.ui.MoviesScreen
@@ -33,6 +59,50 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun App(vm: AppViewModel = viewModel()) {
+    val alert = vm.sport.alert
+    val quiet = vm.screen == Screen.Login || vm.screen == Screen.Loading || vm.screen == Screen.EditSubscription
+    val alreadyWatching = vm.screen == Screen.Player && alert != null &&
+        vm.sourcesFor(alert.channel).any { it.streamId == vm.currentChannel?.streamId }
+    val showAlert = alert != null && !quiet && !alreadyWatching
+    LaunchedEffect(alert) {
+        if (alert != null) {
+            delay(30_000)
+            vm.sport.dismissAlert()
+        }
+    }
+    Box(
+        Modifier.fillMaxSize().onPreviewKeyEvent { e ->
+            if (showAlert && alert != null && e.type == KeyEventType.KeyDown && e.key.nativeKeyCode == android.view.KeyEvent.KEYCODE_MENU) {
+                vm.sport.dismissAlert()
+                vm.jumpToChannel(alert.channel)
+                true
+            } else false
+        }
+    ) {
+        Screens(vm)
+        if (showAlert && alert != null) {
+            Row(
+                Modifier.align(Alignment.TopCenter).padding(top = 20.dp)
+                    .background(Color(0xF207090C), RoundedCornerShape(14.dp))
+                    .border(2.dp, Palette.Accent, RoundedCornerShape(14.dp))
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                TeamBadge(vm.sport, alert.homeTeam, alert.home, 34.dp)
+                TeamBadge(vm.sport, alert.awayTeam, alert.away, 34.dp)
+                Column {
+                    Text("KICK-OFF  ·  ${formatTime(alert.entry.start)}", color = Palette.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Text(alert.title, color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text("${alert.channel.name}  ·  press ☰ Menu to watch", color = Palette.TextSoft, fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Screens(vm: AppViewModel) {
     when (vm.screen) {
         Screen.Login -> LoginScreen(
             initial = vm.editingSubscription,

@@ -228,9 +228,13 @@ fun GuideScreen(vm: AppViewModel) {
                         }
                         LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxSize()) {
                             itemsIndexed(channels, key = { _, c -> c.streamId }) { index, ch ->
+                                val shortEpg = vm.epg[ch.streamId]
+                                val visible = remember(ch.streamId, vm.guide, shortEpg, windowStart, earliest) {
+                                    rowBlocks(ch).filter { it.end > windowStart && it.start < windowEnd }
+                                }
                                 GuideRow(
                                     channel = ch,
-                                    blocks = rowBlocks(ch).filter { it.end > windowStart && it.start < windowEnd },
+                                    blocks = visible,
                                     selected = if (index == row && gridFocused == 1) selectedBlock else null,
                                     rowSelected = index == row,
                                     now = now,

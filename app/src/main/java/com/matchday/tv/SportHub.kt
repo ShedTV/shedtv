@@ -50,6 +50,15 @@ class SportHub(app: Application, private val scope: CoroutineScope) {
     var searchMessage by mutableStateOf<String?>(null)
         private set
 
+    /** A followed team's match that is about to kick off; shown as a banner. */
+    var alert by mutableStateOf<Fixture?>(null)
+        private set
+    private val alerted = HashSet<String>()
+
+    fun dismissAlert() {
+        alert = null
+    }
+
     private val badgeQueue = LinkedHashMap<String, Team>()
     private var badgeJob: Job? = null
 
@@ -118,7 +127,7 @@ class SportHub(app: Application, private val scope: CoroutineScope) {
 
     /** Re-scan the guide for live and upcoming fixtures. */
     suspend fun refresh(channels: List<Channel>, guide: Map<String, List<EpgEntry>>, favourites: Set<String>) {
-        val teams = (TeamsCatalog.all + followed).distinctBy { it.key }
+        val teams = SportMatcher.index((TeamsCatalog.all + followed).distinctBy { it.key })
         val keys = followedKeys
         val now = System.currentTimeMillis()
         val (liveList, upcomingList) = withContext(Dispatchers.Default) {
@@ -156,6 +165,12 @@ class SportHub(app: Application, private val scope: CoroutineScope) {
         }
         live = liveList
         upcoming = upcomingList
+        // Kick-off alert: one of your teams starts within 5 minutes (or started in the last 10).
+        val due = (liveList + upcomingList).firstOrNull {
+            it.involves(keys) && it.entry.start - now < 5 * 60_000 && now - it.entry.start < 10 * 60_000 &&
+                alerted.add(SportMatcher.normalise(it.title) + it.entry.start / 3_600_000)
+        }
+        if (due != null) alert = due
     }
 
     companion object {

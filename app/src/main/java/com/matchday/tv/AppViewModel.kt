@@ -127,7 +127,33 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val channels: List<Channel> get() = allChannels
 
     init {
-        activeSubscription?.let { connect(it) }
+        activeSubscription?.let { connect(it, attempts = 4) }
+        // Keep fixtures, alerts and the guide fresh while the app is open.
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(60_000)
+                if (client == null) continue
+                if (guideLoadedAt > 0 && System.currentTimeMillis() - guideLoadedAt > 6 * 60 * 60 * 1000L) loadGuide(force = true)
+                runCatching { sport.refresh(allChannels, guide, favourites) }
+            }
+        }
+    }
+
+    private var guideLoadedAt = 0L
+
+    /** This channel plus other streams carrying the same thing (same guide id), best first. */
+    fun sourcesFor(channel: Channel): List<Channel> {
+        val id = channel.epgId?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return listOf(channel)
+        val others = allChannels
+            .filter { it.streamId != channel.streamId && it.epgId?.trim()?.lowercase() == id && !it.name.contains("+1") }
+            .sortedByDescending { com.matchday.tv.data.SportMatcher.channelScore(it, favourites) }
+        return (listOf(channel) + others).take(6)
+    }
+
+    /** Go straight to a channel from anywhere (kick-off alerts). */
+    fun jumpToChannel(channel: Channel) {
+        val from = if (screen == Screen.Player || screen == Screen.VodPlayer) returnScreen else screen
+        play(channel, from)
     }
 
     /** Save a new or edited subscription from the form, then connect to it. */
@@ -203,11 +229,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         guide = emptyMap()
         guideStatus = null
         library.reset()
+        guideLoadedAt = 0
         playlist = emptyList()
         lastFocusedChannelId = null
     }
 
-    private fun connect(sub: Subscription, saveOnSuccess: Boolean = false) {
+    private fun connect(sub: Subscription, saveOnSuccess: Boolean = false, attempts: Int = 1) {
         error = null
         val previous = activeSubscription
         val hadSession = client != null
@@ -217,7 +244,20 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 UserAgents.current = sub.userAgent
                 val c = XtreamClient(sub.credentials)
                 loadingMessage = "Signing in to ${sub.name}…"
-                c.login()
+                var attempt = 1
+                while (true) {
+                    try {
+                        c.login()
+                        break
+                    } catch (e: Exception) {
+                        // Right after the Fire Stick wakes, the network may not be up yet.
+                        val network = e is java.net.UnknownHostException || e is java.net.ConnectException || e is java.net.SocketTimeoutException
+                        if (!network || attempt >= attempts) throw e
+                        attempt++
+                        loadingMessage = "Waiting for the network…"
+                        kotlinx.coroutines.delay(4_000)
+                    }
+                }
                 clearSession()
                 if (saveOnSuccess) persist(sub)
                 activeSubscription = sub
@@ -316,6 +356,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun loadGuide(force: Boolean = false) {
         val c = client ?: return
         if (guideJob?.isActive == true) return
+        guideLoadedAt = System.currentTimeMillis()
         val ids = allChannels.mapNotNullTo(HashSet()) { it.epgId?.trim()?.lowercase()?.takeIf { id -> id.isNotEmpty() } }
         guideJob = viewModelScope.launch {
             try {

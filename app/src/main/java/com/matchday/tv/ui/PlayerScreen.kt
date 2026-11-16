@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -85,6 +86,15 @@ fun PlayerScreen(vm: AppViewModel) {
     var retryNonce by remember { mutableIntStateOf(0) }
     val focus = remember { FocusRequester() }
 
+    // The same channel is often carried on several streams; these are the backups, best first.
+    val sources = remember(channel.streamId) { vm.sourcesFor(channel) }
+    var sourceChoice by remember { mutableStateOf(channel.streamId to 0) }
+    val sourceIndex = if (sourceChoice.first == channel.streamId) sourceChoice.second.coerceIn(0, sources.lastIndex) else 0
+    val activeSource = sources[sourceIndex]
+    val latestSources by rememberUpdatedState(sources)
+    val latestSourceIndex by rememberUpdatedState(sourceIndex)
+    val latestChannelId by rememberUpdatedState(channel.streamId)
+
     val player = remember {
         val http = DefaultHttpDataSource.Factory()
             .setUserAgent(com.matchday.tv.data.UserAgents.current)
@@ -133,12 +143,18 @@ fun PlayerScreen(vm: AppViewModel) {
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                if (retries < MAX_RETRIES) {
+                val backupsLeft = latestSources.size - 1 - latestSourceIndex
+                if (retries >= 1 && backupsLeft > 0) {
+                    // One reconnect didn't fix it: move to the next backup stream.
+                    status = "Stream problem. Switching to source ${latestSourceIndex + 2} of ${latestSources.size}…"
+                    retries = 0
+                    sourceChoice = latestChannelId to latestSourceIndex + 1
+                } else if (retries < MAX_RETRIES) {
                     retries++
                     status = "Reconnecting… ($retries/$MAX_RETRIES)"
                     retryNonce++
                 } else {
-                    status = "This channel isn't playing. Try another, or switch Format on the channel list."
+                    status = "This channel isn't playing. Try another, or change Stream format in Settings."
                 }
             }
         }
@@ -151,14 +167,14 @@ fun PlayerScreen(vm: AppViewModel) {
     }
 
     // (Re)start playback whenever the channel changes or a retry is requested.
-    LaunchedEffect(channel.streamId, retryNonce) {
+    LaunchedEffect(activeSource.streamId, retryNonce) {
         if (retryNonce > 0 && retries > 0) delay(1_500L * retries)
-        val url = vm.streamUrl(channel) ?: return@LaunchedEffect
+        val url = vm.streamUrl(activeSource) ?: return@LaunchedEffect
         val item = MediaItem.Builder()
             .setUri(url)
             .apply { if (url.endsWith(".m3u8")) setMimeType(MimeTypes.APPLICATION_M3U8) }
             .build()
-        if (retryNonce == 0 || retries == 0) status = "Connecting…"
+        if (retries == 0 && sourceIndex == 0) status = "Connecting…"
         player.setMediaItem(item)
         player.prepare()
         player.play()
@@ -168,6 +184,34 @@ fun PlayerScreen(vm: AppViewModel) {
         retries = 0
         vm.loadEpg(channel)
         poke()
+    }
+
+    // A stream stuck buffering counts as failed: move to a backup if there is one.
+    LaunchedEffect(status, sourceIndex, channel.streamId) {
+        if (status == "Buffering…" && sourceIndex < sources.lastIndex) {
+            delay(12_000)
+            status = "Still buffering. Switching to source ${sourceIndex + 2} of ${sources.size}…"
+            retries = 0
+            sourceChoice = channel.streamId to sourceIndex + 1
+        }
+    }
+
+    // Stop the stream when the app goes to the background (Home button), resume on return.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> player.stop()
+                androidx.lifecycle.Lifecycle.Event.ON_START ->
+                    if (player.mediaItemCount > 0 && player.playbackState == Player.STATE_IDLE) {
+                        player.prepare()
+                        player.play()
+                    }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     LaunchedEffect(showOverlay, overlayNonce) {
@@ -199,6 +243,16 @@ fun PlayerScreen(vm: AppViewModel) {
                         true
                     }
                     AndroidKeyEvent.KEYCODE_MEDIA_REWIND, AndroidKeyEvent.KEYCODE_LAST_CHANNEL -> { vm.lastChannel(); true }
+                    AndroidKeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                        if (sources.size > 1) {
+                            val next = (sourceIndex + 1) % sources.size
+                            retries = 0
+                            status = "Switching to source ${next + 1} of ${sources.size}…"
+                            sourceChoice = channel.streamId to next
+                        }
+                        poke()
+                        true
+                    }
                     else -> false
                 }
             }
@@ -229,13 +283,13 @@ fun PlayerScreen(vm: AppViewModel) {
         }
 
         AnimatedVisibility(visible = showOverlay, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
-            Overlay(vm = vm, videoInfo = videoInfo)
+            Overlay(vm = vm, videoInfo = videoInfo, sourceLabel = if (sources.size > 1) "Source ${sourceIndex + 1} of ${sources.size}" else "")
         }
     }
 }
 
 @Composable
-private fun Overlay(vm: AppViewModel, videoInfo: String) {
+private fun Overlay(vm: AppViewModel, videoInfo: String, sourceLabel: String) {
     val channel = vm.currentChannel ?: return
     val now = rememberNow()
     val (current, next) = vm.programmesFor(channel).nowAndNext(now)
@@ -247,6 +301,7 @@ private fun Overlay(vm: AppViewModel, videoInfo: String) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (videoInfo.isNotEmpty()) Pill(videoInfo)
+            if (sourceLabel.isNotEmpty()) Pill(sourceLabel)
             Pill(formatTime(now))
         }
 
@@ -289,7 +344,7 @@ private fun Overlay(vm: AppViewModel, videoInfo: String) {
             }
             Spacer(Modifier.height(2.dp))
             Text(
-                "▲▼ change channel  ·  OK hide  ·  ◀◀ last channel  ·  Back to go back",
+                "▲▼ change channel  ·  OK hide  ·  ◀◀ last channel" + (if (sourceLabel.isNotEmpty()) "  ·  ▶▶ switch source" else "") + "  ·  Back to go back",
                 color = Palette.TextMuted, fontSize = 12.sp,
             )
         }

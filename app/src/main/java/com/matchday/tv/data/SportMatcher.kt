@@ -27,16 +27,34 @@ object SportMatcher {
     private val rugbyHints = listOf("rugby league", "super league", "nrl", "challenge cup", "rlwc", "betfred")
     private val footballHints = listOf("football", "premier league", "efl", "fa cup", "carabao", "champions league", "europa", "spfl", "soccer", "skybet", "sky bet", "women's super league", "wsl")
 
-    fun normalise(s: String): String =
-        s.lowercase().replace("&", " and ").replace(Regex("[^a-z0-9 ]"), " ").replace(Regex("\\s+"), " ").trim()
+    private val nonWord = Regex("[^a-z0-9 ]")
+    private val spaces = Regex("\\s+")
+    private val quickCheck = Regex("\\sv(?:s|s\\.|ersus)?\\s", RegexOption.IGNORE_CASE)
 
-    private fun sideMatches(side: String, team: Team): Boolean {
-        val words = normalise(side).split(' ').filter { it.isNotEmpty() && it !in suffixes }.joinToString(" ")
-        return team.aliases.any { normalise(it) == words }
+    fun normalise(s: String): String =
+        s.lowercase().replace("&", " and ").replace(nonWord, " ").replace(spaces, " ").trim()
+
+    /** Normalised with club suffixes (FC, AFC…) dropped. */
+    private fun clean(s: String): String =
+        normalise(s).split(' ').filter { it.isNotEmpty() && it !in suffixes }.joinToString(" ")
+
+    /** Look-up table from every name a team goes by to the teams using it. Build once per scan. */
+    fun index(teams: List<Team>): Map<String, List<Team>> {
+        val map = HashMap<String, MutableList<Team>>()
+        for (t in teams) for (a in t.aliases) for (k in setOf(normalise(a), clean(a))) {
+            if (k.isEmpty()) continue
+            val list = map.getOrPut(k) { ArrayList() }
+            if (t !in list) list.add(t)
+        }
+        return map
     }
 
-    /** Parse a title into a fixture, resolving teams from [teams] where possible. */
-    fun parse(entry: EpgEntry, channel: Channel, teams: List<Team>): Fixture? {
+    private fun candidates(side: String, index: Map<String, List<Team>>): List<Team> =
+        index[normalise(side)] ?: index[clean(side)] ?: emptyList()
+
+    /** Parse a title into a fixture, resolving teams through [index] where possible. */
+    fun parse(entry: EpgEntry, channel: Channel, index: Map<String, List<Team>>): Fixture? {
+        if (!quickCheck.containsMatchIn(entry.title)) return null
         val raw = entry.title.trim()
         val stripped = raw.replace(livePrefix, "")
         val competition = stripped.substringBeforeLast(':', "").trim()
@@ -53,21 +71,17 @@ object SportMatcher {
             footballHints.any { context.contains(it) } -> FOOTBALL
             else -> null
         }
-        val homeCands = teams.filter { sideMatches(home, it) }
-        val awayCands = teams.filter { sideMatches(away, it) }
-        // Pick the pairing that agrees on sport (and with any hint from the title or channel).
-        var homeTeam: Team? = null
-        var awayTeam: Team? = null
-        val sports = listOfNotNull(hint) + listOf(FOOTBALL, RUGBY_LEAGUE)
-        for (sport in sports) {
-            val h = homeCands.firstOrNull { it.sport == sport }
-            val a = awayCands.firstOrNull { it.sport == sport }
-            if (h != null || a != null) {
-                if (hint != null && sport != hint && (homeCands.any { it.sport == hint } || awayCands.any { it.sport == hint })) continue
-                homeTeam = h; awayTeam = a
-                break
-            }
-        }
+        val homeCands = candidates(home, index)
+        val awayCands = candidates(away, index)
+        // Pick the pairing that agrees on sport: the hinted sport first, then whichever
+        // sport knows both sides ("Hull v Leeds" is rugby league if nothing says otherwise…
+        // unless both are football clubs too, when the hint decides).
+        val sports = (listOfNotNull(hint) + listOf(FOOTBALL, RUGBY_LEAGUE)).distinct()
+        fun pair(sport: String) = homeCands.firstOrNull { it.sport == sport } to awayCands.firstOrNull { it.sport == sport }
+        val chosen = sports.map { pair(it) }.firstOrNull { it.first != null && it.second != null }
+            ?: sports.map { pair(it) }.firstOrNull { it.first != null || it.second != null }
+        val homeTeam = chosen?.first
+        val awayTeam = chosen?.second
         val live = raw.contains("live", ignoreCase = true) || entry.description.startsWith("live", ignoreCase = true)
         val looksSporty = homeTeam != null || awayTeam != null || hint != null || channel.name.contains("sport", true)
         if (!looksSporty) return null
