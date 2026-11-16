@@ -6,6 +6,13 @@ plugins {
 
 val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
 
+// The official app is signed with a private key that only exists as a GitHub secret
+// on the main repo. Everyone else (forks, local builds) gets "Matchday (dev)", which has
+// its own app id and the public dev key, so it installs alongside the official app.
+val officialKey = file("release.keystore")
+val officialPassword = System.getenv("MATCHDAY_KEY_PASSWORD")
+val isOfficial = officialKey.exists() && !officialPassword.isNullOrBlank()
+
 android {
     namespace = "com.matchday.tv"
     compileSdk = 35
@@ -16,15 +23,28 @@ android {
         targetSdk = 35
         versionCode = buildNumber
         versionName = "0.1.$buildNumber"
+        if (isOfficial) {
+            manifestPlaceholders["appLabel"] = "Matchday"
+        } else {
+            applicationIdSuffix = ".dev"
+            manifestPlaceholders["appLabel"] = "Matchday (dev)"
+        }
     }
 
-    // A fixed key so each new build installs over the previous one.
+    // A fixed key per variant so each new build installs over the previous one.
     signingConfigs {
         create("matchday") {
-            storeFile = file("matchday.keystore")
-            storePassword = "matchday"
-            keyAlias = "matchday"
-            keyPassword = "matchday"
+            if (isOfficial) {
+                storeFile = officialKey
+                storePassword = officialPassword
+                keyAlias = "matchday"
+                keyPassword = officialPassword
+            } else {
+                storeFile = file("dev.keystore")
+                storePassword = "matchday"
+                keyAlias = "matchday"
+                keyPassword = "matchday"
+            }
         }
     }
 

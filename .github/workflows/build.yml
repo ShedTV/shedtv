@@ -21,7 +21,15 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      - name: Load the official signing key (main repo only)
+        env:
+          KEYSTORE_B64: ${{ secrets.MATCHDAY_KEYSTORE_B64 }}
+        if: env.KEYSTORE_B64 != ''
+        run: echo "$KEYSTORE_B64" | base64 -d > app/release.keystore
+
       - name: Build
+        env:
+          MATCHDAY_KEY_PASSWORD: ${{ secrets.MATCHDAY_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
           set -o pipefail
@@ -35,7 +43,9 @@ jobs:
           done
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/release/app-release.apk matchday.apk
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk matchday.apk
+          rm -f app/release.keystore
 
       - uses: actions/upload-artifact@v4
         with:

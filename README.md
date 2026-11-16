@@ -13,3 +13,12 @@ On Fire TV, turn on **Settings → Display & Sounds → Display → Match Origin
 
 ## Builds
 Every push to `main` builds a signed APK on GitHub Actions and publishes it as the `latest` release.
+
+## Forking and contributing
+1. Fork this repo, then open your fork's **Actions** tab and enable workflows.
+2. Every push to your fork's `main` builds **Matchday (dev)** — a separate app (`com.matchday.tv.dev`)
+   that installs alongside the official one. Download it from your fork's `latest` release.
+3. Send features back with a pull request.
+
+The official app is signed with a private key held as repository secrets
+(`MATCHDAY_KEYSTORE_B64`, `MATCHDAY_KEY_PASSWORD`) on the main repo only.
