@@ -94,8 +94,6 @@ fun VodPlayerScreen(vm: AppViewModel) {
             .setReadTimeoutMs(30_000)
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(DefaultMediaSourceFactory(http))
-            .setSeekBackIncrement(SEEK_SMALL)
-            .setSeekForwardIncrement(SEEK_SMALL)
             .build()
             .apply {
                 playWhenReady = true
