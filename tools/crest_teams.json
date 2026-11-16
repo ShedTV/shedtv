@@ -1,0 +1,242 @@
+[
+ {
+  "key": "fb-arsenal",
+  "lookup": "Arsenal",
+  "name": "Arsenal",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-villa",
+  "lookup": "Aston Villa",
+  "name": "Aston Villa",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-bournemouth",
+  "lookup": "Bournemouth",
+  "name": "Bournemouth",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-brentford",
+  "lookup": "Brentford",
+  "name": "Brentford",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-brighton",
+  "lookup": "Brighton and Hove Albion",
+  "name": "Brighton",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-chelsea",
+  "lookup": "Chelsea",
+  "name": "Chelsea",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-coventry",
+  "lookup": "Coventry City",
+  "name": "Coventry City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-palace",
+  "lookup": "Crystal Palace",
+  "name": "Crystal Palace",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-everton",
+  "lookup": "Everton",
+  "name": "Everton",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-fulham",
+  "lookup": "Fulham",
+  "name": "Fulham",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-hullcity",
+  "lookup": "Hull City",
+  "name": "Hull City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-ipswich",
+  "lookup": "Ipswich Town",
+  "name": "Ipswich Town",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-leeds",
+  "lookup": "Leeds United",
+  "name": "Leeds United",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-liverpool",
+  "lookup": "Liverpool",
+  "name": "Liverpool",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-mancity",
+  "lookup": "Manchester City",
+  "name": "Manchester City",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-manutd",
+  "lookup": "Manchester United",
+  "name": "Manchester United",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-newcastle",
+  "lookup": "Newcastle United",
+  "name": "Newcastle United",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-forest",
+  "lookup": "Nottingham Forest",
+  "name": "Nottingham Forest",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-sunderland",
+  "lookup": "Sunderland",
+  "name": "Sunderland",
+  "sport": "Soccer"
+ },
+ {
+  "key": "fb-spurs",
+  "lookup": "Tottenham Hotspur",
+  "name": "Tottenham Hotspur",
+  "sport": "Soccer"
+ },
+ {
+  "key": "rl-bradford",
+  "lookup": "Bradford Bulls",
+  "name": "Bradford Bulls",
+  "sport": "Rugby"
+ },
+ {
+  "key": "rl-castleford",
+  "lookup": "Castleford Tigers",
+  "name": "Castleford Tigers",
+  "sport": "Rugby"
+ },
+ {
+  "key": "rl-catalans",
+  "lookup": "Catalans Dragons",
+  "name": "Catalans Dragons",
+  "sport": "Rugby"
+ },
+ {
+  "key": "rl-huddersfield",
+  "lookup": "Huddersfield Giants",
+  "name": "Huddersfield Giants",
+  "sport": "Rugby"
+ },
+ {
+  "key": "rl-hullfc",
+  "lookup": "Hull FC",
+  "name": "Hull FC",
+  "sport": "Rugby"
+ },
+ {
+  "key": "rl-hullkr",
+  "lookup": "Hull Kingston Rovers",
+  "name": "Hull KR",
+  "sport": "Rugby"
+ },
+ {
+  "key": "rl-leeds",
+  "lookup": "Leeds Rhinos",
+  "name": "Leeds Rhinos",
+  "sport": "Rugby"
+ },
+ {
+  "key": "rl-leigh",
+  "lookup": "Leigh Leopards",
+  "name": "Leigh Leopards",
+  "sport": "Rugby"
+ },
+ {
+  "key": "rl-sthelens",
+  "lookup": "St Helens",
+  "name": "St Helens",
+  "sport": "Rugby"
+ },
+ {
+  "key": "rl-toulouse",
+  "lookup": "Toulouse Olympique",
+  "name": "Toulouse Olympique",
+  "sport": "Rugby"
+ },
+ {
+  "key": "rl-wakefield",
+  "lookup": "Wakefield Trinity",
+  "name": "Wakefield Trinity",
+  "sport": "Rugby"
+ },
+ {
+  "key": "rl-warrington",
+  "lookup": "Warrington Wolves",
+  "name": "Warrington Wolves",
+  "sport": "Rugby"
+ },
+ {
+  "key": "rl-wigan",
+  "lookup": "Wigan Warriors",
+  "name": "Wigan Warriors",
+  "sport": "Rugby"
+ },
+ {
+  "key": "rl-york",
+  "lookup": "York Knights",
+  "name": "York Knights",
+  "sport": "Rugby"
+ },
+ {
+  "key": "int-eng-fb",
+  "lookup": "England",
+  "name": "England (football)",
+  "sport": "Soccer"
+ },
+ {
+  "key": "int-sco-fb",
+  "lookup": "Scotland",
+  "name": "Scotland (football)",
+  "sport": "Soccer"
+ },
+ {
+  "key": "int-wal-fb",
+  "lookup": "Wales",
+  "name": "Wales (football)",
+  "sport": "Soccer"
+ },
+ {
+  "key": "int-ni-fb",
+  "lookup": "Northern Ireland",
+  "name": "Northern Ireland",
+  "sport": "Soccer"
+ },
+ {
+  "key": "int-ire-fb",
+  "lookup": "Republic of Ireland",
+  "name": "Republic of Ireland",
+  "sport": "Soccer"
+ },
+ {
+  "key": "int-eng-rl",
+  "lookup": "England Rugby League",
+  "name": "England (rugby league)",
+  "sport": "Rugby"
+ }
+]
