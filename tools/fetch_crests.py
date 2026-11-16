@@ -58,7 +58,11 @@ def main():
         queries = [team["lookup"], team["name"].split(" (")[0]] + team.get("alt", [])
         chosen = None
         for q in dict.fromkeys(queries):
-            chosen = pick(fetch(q), team)
+            results = fetch(q)
+            chosen = pick(results, team)
+            if not chosen:
+                seen = "; ".join(f"{t.get('strTeam')}|{t.get('strSport')}|{t.get('strLeague')}" for t in results[:6]) or "nothing"
+                print(f"::warning::{team['key']} query '{q}' returned: {seen}")
             time.sleep(7)
             if chosen:
                 break
