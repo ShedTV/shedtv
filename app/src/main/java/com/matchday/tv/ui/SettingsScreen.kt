@@ -131,6 +131,13 @@ fun SettingsScreen(vm: AppViewModel) {
                 }
 
                 Spacer(Modifier.height(8.dp))
+                Heading("Live rewind", "Pause and rewind live TV, up to about 30 minutes. Uses up to 1.5 GB of storage while watching. MPEG-TS format only.")
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Chip("On", selected = vm.liveRewind) { vm.setLiveRewindEnabled(true) }
+                    Chip("Off", selected = !vm.liveRewind) { vm.setLiveRewindEnabled(false) }
+                }
+
+                Spacer(Modifier.height(8.dp))
                 Heading("TV guide", vm.guideStatus ?: "Refreshes every 8 hours")
                 Chip("Refresh guide now") { vm.loadGuide(force = true) }
             }

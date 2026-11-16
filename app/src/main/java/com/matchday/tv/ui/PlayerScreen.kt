@@ -70,6 +70,7 @@ import kotlinx.coroutines.delay
 
 private const val OVERLAY_TIMEOUT_MS = 5_000L
 private const val MAX_RETRIES = 5
+private const val LIVE_EDGE_MS = 20_000L
 
 @AndroidXOptIn(UnstableApi::class)
 @Composable
@@ -95,6 +96,13 @@ fun PlayerScreen(vm: AppViewModel) {
     val latestSourceIndex by rememberUpdatedState(sourceIndex)
     val latestChannelId by rememberUpdatedState(channel.streamId)
 
+    // Live rewind: the player reads from a recording of the stream rather than the network.
+    val timeshift = remember { com.matchday.tv.player.TimeshiftBuffer(java.io.File(context.cacheDir, "timeshift")) }
+    val useTimeshift = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+    var rewindActive by remember { mutableStateOf(false) }
+    var behindMs by remember { mutableStateOf(0L) }
+    var paused by remember { mutableStateOf(false) }
+
     val player = remember {
         val http = DefaultHttpDataSource.Factory()
             .setUserAgent(com.matchday.tv.data.UserAgents.current)
@@ -106,7 +114,13 @@ fun PlayerScreen(vm: AppViewModel) {
             .setBufferDurationsMs(15_000, 50_000, 1_500, 3_000)
             .build()
         ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(http))
+            .setMediaSourceFactory(
+                DefaultMediaSourceFactory(
+                    androidx.media3.datasource.DataSource.Factory {
+                        if (useTimeshift.get()) com.matchday.tv.player.TimeshiftDataSource(timeshift) else http.createDataSource()
+                    }
+                )
+            )
             .setLoadControl(loadControl)
             .build()
             .apply {
@@ -162,6 +176,7 @@ fun PlayerScreen(vm: AppViewModel) {
         onDispose {
             player.removeListener(listener)
             player.release()
+            timeshift.stop()
             FrameRateMatcher.reset(activity)
         }
     }
@@ -175,6 +190,12 @@ fun PlayerScreen(vm: AppViewModel) {
             .apply { if (url.endsWith(".m3u8")) setMimeType(MimeTypes.APPLICATION_M3U8) }
             .build()
         if (retries == 0 && sourceIndex == 0) status = "Connecting…"
+        val buffered = vm.liveRewind && !url.endsWith(".m3u8") && timeshift.canBuffer()
+        useTimeshift.set(buffered)
+        rewindActive = buffered
+        timeshift.openTarget = -1
+        paused = false
+        behindMs = 0
         player.setMediaItem(item)
         player.prepare()
         player.play()
@@ -201,7 +222,12 @@ fun PlayerScreen(vm: AppViewModel) {
     DisposableEffect(lifecycleOwner) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             when (event) {
-                androidx.lifecycle.Lifecycle.Event.ON_STOP -> player.stop()
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> {
+                    player.stop()
+                    timeshift.stop()
+                    timeshift.openTarget = -1
+                    paused = false
+                }
                 androidx.lifecycle.Lifecycle.Event.ON_START ->
                     if (player.mediaItemCount > 0 && player.playbackState == Player.STATE_IDLE) {
                         player.prepare()
@@ -214,8 +240,38 @@ fun PlayerScreen(vm: AppViewModel) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    LaunchedEffect(showOverlay, overlayNonce) {
-        if (showOverlay) {
+    // Track how far behind live we are; never let a pause outlast the recording.
+    LaunchedEffect(rewindActive) {
+        while (rewindActive) {
+            delay(500)
+            val playPoint = timeshift.openWall() + player.currentPosition
+            behindMs = (System.currentTimeMillis() - playPoint).coerceAtLeast(0)
+            if (paused && playPoint < timeshift.oldestWall() + 15_000) {
+                paused = false
+                player.play()
+            }
+        }
+    }
+
+    /** Jump to [target] milliseconds behind live (0 = live). */
+    fun seekBehind(target: Long) {
+        poke()
+        if (!rewindActive) return
+        val now = System.currentTimeMillis()
+        val maxBehind = (now - timeshift.oldestWall()).coerceAtLeast(0)
+        if (maxBehind < 5_000) return
+        val behind = target.coerceIn(0, maxBehind)
+        val url = vm.streamUrl(activeSource) ?: return
+        timeshift.openTarget = if (behind < 8_000) -1 else now - behind
+        paused = false
+        behindMs = behind
+        player.setMediaItem(MediaItem.fromUri(url))
+        player.prepare()
+        player.play()
+    }
+
+    LaunchedEffect(showOverlay, overlayNonce, paused) {
+        if (showOverlay && !paused) {
             delay(OVERLAY_TIMEOUT_MS)
             showOverlay = false
         }
@@ -236,15 +292,28 @@ fun PlayerScreen(vm: AppViewModel) {
                 when (event.key.nativeKeyCode) {
                     AndroidKeyEvent.KEYCODE_DPAD_UP, AndroidKeyEvent.KEYCODE_CHANNEL_UP -> { vm.zap(-1); true }
                     AndroidKeyEvent.KEYCODE_DPAD_DOWN, AndroidKeyEvent.KEYCODE_CHANNEL_DOWN -> { vm.zap(1); true }
+                    AndroidKeyEvent.KEYCODE_DPAD_LEFT -> { seekBehind(behindMs + 15_000); true }
+                    AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> { if (behindMs > LIVE_EDGE_MS) seekBehind(behindMs - 15_000) else poke(); true }
+                    AndroidKeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, AndroidKeyEvent.KEYCODE_MEDIA_PLAY, AndroidKeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                        if (rewindActive) {
+                            paused = !paused
+                            if (paused) player.pause() else player.play()
+                        }
+                        poke()
+                        true
+                    }
+                    AndroidKeyEvent.KEYCODE_MENU -> { vm.lastChannel(); true }
                     AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER,
-                    AndroidKeyEvent.KEYCODE_DPAD_LEFT, AndroidKeyEvent.KEYCODE_DPAD_RIGHT,
                     AndroidKeyEvent.KEYCODE_INFO -> {
                         if (showOverlay && event.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_CENTER) showOverlay = false else poke()
                         true
                     }
-                    AndroidKeyEvent.KEYCODE_MEDIA_REWIND, AndroidKeyEvent.KEYCODE_LAST_CHANNEL -> { vm.lastChannel(); true }
+                    AndroidKeyEvent.KEYCODE_LAST_CHANNEL -> { vm.lastChannel(); true }
+                    AndroidKeyEvent.KEYCODE_MEDIA_REWIND -> { if (rewindActive) seekBehind(behindMs + 60_000) else vm.lastChannel(); true }
                     AndroidKeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
-                        if (sources.size > 1) {
+                        if (rewindActive && behindMs > LIVE_EDGE_MS) {
+                            seekBehind(behindMs - 60_000)
+                        } else if (sources.size > 1) {
                             val next = (sourceIndex + 1) % sources.size
                             retries = 0
                             status = "Switching to source ${next + 1} of ${sources.size}…"
@@ -283,13 +352,38 @@ fun PlayerScreen(vm: AppViewModel) {
         }
 
         AnimatedVisibility(visible = showOverlay, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
-            Overlay(vm = vm, videoInfo = videoInfo, sourceLabel = if (sources.size > 1) "Source ${sourceIndex + 1} of ${sources.size}" else "")
+            Overlay(
+                vm = vm, videoInfo = videoInfo,
+                sourceLabel = if (sources.size > 1) "Source ${sourceIndex + 1} of ${sources.size}" else "",
+                rewindLabel = when {
+                    !rewindActive -> ""
+                    paused -> "❚❚  Paused  ·  ${behindClock(behindMs)} behind live"
+                    behindMs > LIVE_EDGE_MS -> "◀◀  ${behindClock(behindMs)} behind live  ·  ▶▶ to catch up"
+                    else -> "●  LIVE"
+                },
+                behind = rewindActive && (paused || behindMs > LIVE_EDGE_MS),
+            )
+        }
+
+        // Always show when you're not watching live, even with the info bar hidden.
+        if (rewindActive && !showOverlay && (paused || behindMs > LIVE_EDGE_MS)) {
+            Text(
+                (if (paused) "❚❚  " else "") + "−" + behindClock(behindMs),
+                color = Palette.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.TopStart).padding(top = 24.dp, start = 36.dp)
+                    .background(Color(0xCC07090C), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
+            )
         }
     }
 }
 
+private fun behindClock(ms: Long): String {
+    val s = ms / 1000
+    return "%d:%02d".format(s / 60, s % 60)
+}
+
 @Composable
-private fun Overlay(vm: AppViewModel, videoInfo: String, sourceLabel: String) {
+private fun Overlay(vm: AppViewModel, videoInfo: String, sourceLabel: String, rewindLabel: String, behind: Boolean) {
     val channel = vm.currentChannel ?: return
     val now = rememberNow()
     val (current, next) = vm.programmesFor(channel).nowAndNext(now)
@@ -342,9 +436,13 @@ private fun Overlay(vm: AppViewModel, videoInfo: String, sourceLabel: String) {
                     Text(formatTime(current.end), color = Palette.TextSoft, fontSize = 13.sp)
                 }
             }
+            if (rewindLabel.isNotEmpty()) {
+                Text(rewindLabel, color = if (behind) Palette.Accent else Palette.Live, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
             Spacer(Modifier.height(2.dp))
             Text(
-                "▲▼ change channel  ·  OK hide  ·  ◀◀ last channel" + (if (sourceLabel.isNotEmpty()) "  ·  ▶▶ switch source" else "") + "  ·  Back to go back",
+                "▲▼ channel  ·  " + (if (rewindLabel.isNotEmpty()) "◀ ▶ 15s  ·  ◀◀ ▶▶ 1 min  ·  ⏯ pause  ·  ☰ last channel" else "◀◀ last channel") +
+                    (if (sourceLabel.isNotEmpty()) "  ·  ▶▶ at live: switch source" else "") + "  ·  OK hide",
                 color = Palette.TextMuted, fontSize = 12.sp,
             )
         }

@@ -153,6 +153,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     var searchQuery by mutableStateOf("")
 
+    /** Record live channels to storage so they can be paused and rewound. */
+    var liveRewind by mutableStateOf(prefs.liveRewind)
+        private set
+
+    fun setLiveRewindEnabled(on: Boolean) {
+        liveRewind = on
+        prefs.liveRewind = on
+    }
+
     /** Find channels, programmes (now and coming up), movies and series. Every word must match. */
     suspend fun search(query: String): SearchResults = withContext(Dispatchers.Default) {
         val words = query.lowercase().split(' ').filter { it.isNotBlank() }

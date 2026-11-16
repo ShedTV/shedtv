@@ -84,6 +84,10 @@ class Prefs(context: Context) {
             sp.edit().putString("subscriptions", arr.toString()).apply()
         }
 
+    var liveRewind: Boolean
+        get() = sp.getBoolean("liveRewind", true)
+        set(value) = sp.edit().putBoolean("liveRewind", value).apply()
+
     var activeId: String?
         get() = sp.getString("activeSubscription", null)
         set(value) = sp.edit().putString("activeSubscription", value).apply()
