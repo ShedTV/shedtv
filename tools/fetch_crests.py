@@ -46,14 +46,52 @@ def pick(results, team):
     return ok[0] if ok else None
 
 
+def league_lists():
+    """Whole-league listings (the free key returns up to 10 teams per league)."""
+    out = []
+    for lg in ["English Super League", "Super League", "English_Super_League", "English Premier League"]:
+        url = "https://www.thesportsdb.com/api/v1/json/123/search_all_teams.php?l=" + urllib.parse.quote(lg)
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "ShedTV crest builder", "X-API-KEY": "123"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                teams = json.loads(r.read().decode("utf-8") or "{}").get("teams") or []
+            print(f"::notice::league '{lg}': " + ", ".join(f"{t.get('strTeam')}|{t.get('strSport')}" for t in teams))
+            out += teams
+        except Exception as e:
+            print(f"::warning::league '{lg}': {e}")
+        time.sleep(7)
+    for tid in ["133720"]:  # Nottingham Forest
+        url = "https://www.thesportsdb.com/api/v1/json/123/lookupteam.php?id=" + tid
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "ShedTV crest builder", "X-API-KEY": "123"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                teams = json.loads(r.read().decode("utf-8") or "{}").get("teams") or []
+            print(f"::notice::id {tid}: " + ", ".join(f"{t.get('strTeam')}|{t.get('strSport')}" for t in teams))
+            out += teams
+        except Exception as e:
+            print(f"::warning::id {tid}: {e}")
+        time.sleep(7)
+    return out
+
+
 def main():
     teams = json.load(open("tools/crest_teams.json"))
     try:
         crests = json.load(open(OUT))
     except Exception:
         crests = {}
+    extra = None
     for team in teams:
         if team["key"] in crests:
+            continue
+        if extra is None:
+            extra = league_lists()
+        hit = pick([t for t in extra if (t.get("strTeam") or "").lower() in
+                    [n.lower() for n in [team["lookup"], team["name"]] + team.get("alt", [])]], team)
+        if hit and (hit.get("strBadge") or hit.get("strTeamBadge")):
+            badge = hit.get("strBadge") or hit.get("strTeamBadge")
+            crests[team["key"]] = badge if badge.endswith("/small") else badge + "/small"
+            print(f"::notice::{team['key']}: {hit.get('strTeam')} | {hit.get('strSport')} | {hit.get('strLeague')} (league list)")
             continue
         queries = [team["lookup"], team["name"].split(" (")[0]] + team.get("alt", [])
         chosen = None
