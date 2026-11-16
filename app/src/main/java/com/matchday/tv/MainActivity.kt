@@ -5,7 +5,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.matchday.tv.ui.ComingSoonScreen
+import com.matchday.tv.ui.MovieDetailsScreen
+import com.matchday.tv.ui.MoviesScreen
+import com.matchday.tv.ui.SeriesDetailsScreen
+import com.matchday.tv.ui.SeriesScreen
+import com.matchday.tv.ui.VodPlayerScreen
 import com.matchday.tv.ui.GuideScreen
 import com.matchday.tv.ui.LiveTvScreen
 import com.matchday.tv.ui.LoadingScreen
@@ -35,8 +39,11 @@ private fun App(vm: AppViewModel = viewModel()) {
         Screen.Loading -> LoadingScreen(vm.loadingMessage)
         Screen.Live -> LiveTvScreen(vm)
         Screen.Guide -> GuideScreen(vm)
-        Screen.Movies -> ComingSoonScreen(vm, Screen.Movies, "Movies", "Your provider's films arrive in the next build.")
-        Screen.Series -> ComingSoonScreen(vm, Screen.Series, "Series", "Box sets and episodes arrive in the next build.")
+        Screen.Movies -> MoviesScreen(vm)
+        Screen.Series -> SeriesScreen(vm)
+        Screen.MovieDetails -> MovieDetailsScreen(vm)
+        Screen.SeriesDetails -> SeriesDetailsScreen(vm)
+        Screen.VodPlayer -> VodPlayerScreen(vm)
         Screen.Player -> PlayerScreen(vm)
     }
 }

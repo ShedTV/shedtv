@@ -28,6 +28,9 @@ sealed interface Screen {
     data object Guide : Screen
     data object Movies : Screen
     data object Series : Screen
+    data object MovieDetails : Screen
+    data object SeriesDetails : Screen
+    data object VodPlayer : Screen
     data object Player : Screen
 }
 
@@ -71,6 +74,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         private set
     private var guideJob: Job? = null
     private val epgRepository = EpgRepository(app)
+
+    /** Movies and series. */
+    val library = Library(app, viewModelScope) { client }
 
     /** Where Back from the player returns to. */
     private var returnScreen: Screen = Screen.Live
@@ -143,6 +149,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         guideJob?.cancel()
         guide = emptyMap()
         guideStatus = null
+        library.reset()
         screen = Screen.Login
     }
 
@@ -217,6 +224,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 guideStatus = "Couldn't load the TV guide (${e.message ?: "unknown error"})."
             }
         }
+    }
+
+    fun playVod(p: com.matchday.tv.data.Playable) {
+        library.playing = p
+        returnScreen = screen
+        screen = Screen.VodPlayer
     }
 
     fun play(channel: Channel, from: Screen = Screen.Live) {

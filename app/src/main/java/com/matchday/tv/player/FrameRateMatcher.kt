@@ -15,8 +15,8 @@ object FrameRateMatcher {
     /** UK broadcasts are 25/50fps; used when a stream doesn't say. */
     const val DEFAULT_FPS = 50f
 
-    fun match(activity: Activity, fps: Float) {
-        val frameRate = if (fps > 1f) fps else DEFAULT_FPS
+    fun match(activity: Activity, fps: Float, fallback: Float? = DEFAULT_FPS) {
+        val frameRate = if (fps > 1f) fps else fallback ?: return
         val display = currentDisplay(activity) ?: return
         val current = display.mode
         val candidates = display.supportedModes

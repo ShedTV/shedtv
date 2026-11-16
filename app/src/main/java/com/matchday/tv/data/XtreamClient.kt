@@ -61,8 +61,12 @@ class XtreamClient(credentials: Credentials) {
         return AccountInfo(status, user.str("exp_date"), user.str("max_connections"))
     }
 
-    suspend fun liveCategories(): List<Category> {
-        val arr = get(apiUrl("get_live_categories")) as? JsonArray ?: return emptyList()
+    suspend fun liveCategories(): List<Category> = categories("get_live_categories")
+    suspend fun vodCategories(): List<Category> = categories("get_vod_categories")
+    suspend fun seriesCategories(): List<Category> = categories("get_series_categories")
+
+    private suspend fun categories(action: String): List<Category> {
+        val arr = get(apiUrl(action)) as? JsonArray ?: return emptyList()
         return arr.mapNotNull { el ->
             val o = el as? JsonObject ?: return@mapNotNull null
             val id = o.str("category_id") ?: return@mapNotNull null
@@ -102,6 +106,107 @@ class XtreamClient(credentials: Credentials) {
                 end = end * 1000,
             )
         }
+    }
+
+    suspend fun vodStreams(): List<VodItem> {
+        val arr = get(apiUrl("get_vod_streams")) as? JsonArray ?: return emptyList()
+        return arr.mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            val id = o.str("stream_id") ?: return@mapNotNull null
+            VodItem(
+                id = id,
+                name = o.str("name")?.trim().orEmpty().ifEmpty { "Untitled" },
+                poster = o.str("stream_icon")?.takeIf { it.startsWith("http") },
+                rating = o.str("rating")?.takeIf { it.isNotBlank() && it != "0" },
+                categoryId = o.str("category_id"),
+                ext = o.str("container_extension")?.ifBlank { null } ?: "mp4",
+                added = o.str("added")?.toLongOrNull() ?: 0,
+            )
+        }.distinctBy { it.id }
+    }
+
+    suspend fun series(): List<SeriesItem> {
+        val arr = get(apiUrl("get_series")) as? JsonArray ?: return emptyList()
+        return arr.mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            val id = o.str("series_id") ?: return@mapNotNull null
+            SeriesItem(
+                id = id,
+                name = o.str("name")?.trim().orEmpty().ifEmpty { "Untitled" },
+                cover = o.str("cover")?.takeIf { it.startsWith("http") },
+                plot = o.str("plot").orEmpty(),
+                genre = o.str("genre").orEmpty(),
+                year = (o.str("releaseDate") ?: o.str("release_date")).orEmpty().take(4),
+                rating = o.str("rating")?.takeIf { it.isNotBlank() && it != "0" },
+                categoryId = o.str("category_id"),
+                updated = o.str("last_modified")?.toLongOrNull() ?: 0,
+            )
+        }.distinctBy { it.id }
+    }
+
+    suspend fun vodInfo(id: String): MovieInfo {
+        val root = get(apiUrl("get_vod_info", "&vod_id=$id")) as? JsonObject ?: throw IOException("No details for this film")
+        val info = root["info"] as? JsonObject ?: JsonObject(emptyMap())
+        val data = root["movie_data"] as? JsonObject
+        return MovieInfo(
+            plot = (info.str("plot") ?: info.str("description")).orEmpty(),
+            genre = info.str("genre").orEmpty(),
+            cast = (info.str("cast") ?: info.str("actors")).orEmpty(),
+            director = info.str("director").orEmpty(),
+            year = (info.str("releasedate") ?: info.str("release_date")).orEmpty().take(4),
+            duration = info.str("duration").orEmpty(),
+            backdrop = firstUrl(info["backdrop_path"]),
+            rating = info.str("rating")?.takeIf { it.isNotBlank() && it != "0" },
+            ext = data?.str("container_extension"),
+        )
+    }
+
+    suspend fun seriesInfo(id: String): SeriesInfo {
+        val root = get(apiUrl("get_series_info", "&series_id=$id")) as? JsonObject ?: throw IOException("No details for this series")
+        val info = root["info"] as? JsonObject ?: JsonObject(emptyMap())
+        val episodes = ArrayList<Episode>()
+        fun addFrom(arr: JsonArray, seasonKey: Int?) {
+            arr.forEach { el ->
+                val o = el as? JsonObject ?: return@forEach
+                val epId = o.str("id") ?: return@forEach
+                val epInfo = o["info"] as? JsonObject
+                episodes += Episode(
+                    id = epId,
+                    season = o.str("season")?.toIntOrNull() ?: seasonKey ?: 1,
+                    num = o.str("episode_num")?.toIntOrNull() ?: (episodes.size + 1),
+                    title = o.str("title")?.trim().orEmpty(),
+                    plot = epInfo?.str("plot").orEmpty(),
+                    duration = epInfo?.str("duration").orEmpty(),
+                    image = epInfo?.str("movie_image")?.takeIf { it.startsWith("http") },
+                    ext = o.str("container_extension")?.ifBlank { null } ?: "mp4",
+                )
+            }
+        }
+        when (val eps = root["episodes"]) {
+            is JsonObject -> eps.forEach { (k, v) -> (v as? JsonArray)?.let { addFrom(it, k.toIntOrNull()) } }
+            is JsonArray -> eps.forEach { (it as? JsonArray)?.let { arr -> addFrom(arr, null) } }
+            else -> Unit
+        }
+        return SeriesInfo(
+            plot = info.str("plot").orEmpty(),
+            genre = info.str("genre").orEmpty(),
+            cast = info.str("cast").orEmpty(),
+            year = (info.str("releaseDate") ?: info.str("release_date")).orEmpty().take(4),
+            backdrop = firstUrl(info["backdrop_path"]) ?: info.str("cover")?.takeIf { it.startsWith("http") },
+            seasons = episodes.groupBy { it.season }.toSortedMap().mapValues { (_, l) -> l.sortedBy { it.num } },
+        )
+    }
+
+    fun movieUrl(id: String, ext: String) =
+        "${creds.server}/movie/${encPath(creds.username)}/${encPath(creds.password)}/$id.$ext"
+
+    fun episodeUrl(id: String, ext: String) =
+        "${creds.server}/series/${encPath(creds.username)}/${encPath(creds.password)}/$id.$ext"
+
+    private fun firstUrl(el: JsonElement?): String? = when (el) {
+        is JsonArray -> el.firstNotNullOfOrNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf { u -> u.startsWith("http") } }
+        is JsonPrimitive -> el.contentOrNull?.takeIf { it.startsWith("http") }
+        else -> null
     }
 
     fun xmltvUrl(): String =
