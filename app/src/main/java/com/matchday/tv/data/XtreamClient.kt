@@ -15,7 +15,7 @@ import java.io.IOException
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
-const val USER_AGENT = "Matchday/0.1 (Android TV)"
+const val USER_AGENT = "ShedTV/0.1 (Android TV)"
 
 /** Talks to an Xtream Codes compatible provider. */
 class XtreamClient(credentials: Credentials) {

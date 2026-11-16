@@ -7,7 +7,7 @@ plugins {
 val buildNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
 
 // The official app is signed with a private key that only exists as a GitHub secret
-// on the main repo. Everyone else (forks, local builds) gets "Matchday (dev)", which has
+// on the main repo. Everyone else (forks, local builds) gets "ShedTV (dev)", which has
 // its own app id and the public dev key, so it installs alongside the official app.
 val officialKey = file("release.keystore")
 val officialPassword = System.getenv("MATCHDAY_KEY_PASSWORD")
@@ -18,16 +18,16 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.matchday.tv"
+        applicationId = "com.shedtv.app"
         minSdk = 26
         targetSdk = 35
         versionCode = buildNumber
         versionName = "0.1.$buildNumber"
         if (isOfficial) {
-            manifestPlaceholders["appLabel"] = "Matchday"
+            manifestPlaceholders["appLabel"] = "ShedTV"
         } else {
             applicationIdSuffix = ".dev"
-            manifestPlaceholders["appLabel"] = "Matchday (dev)"
+            manifestPlaceholders["appLabel"] = "ShedTV (dev)"
         }
     }
 

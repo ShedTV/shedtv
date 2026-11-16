@@ -75,10 +75,7 @@ fun NavRail(vm: AppViewModel, current: Screen) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Box(
-            Modifier.size(34.dp).background(Palette.Accent, RoundedCornerShape(9.dp)),
-            contentAlignment = Alignment.Center,
-        ) { Text("M", color = Palette.Background, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
+        ShedMark(46.dp)
         Spacer(Modifier.height(18.dp))
         railItems.forEach { item ->
             val selected = item.screen == current

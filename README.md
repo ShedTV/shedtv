@@ -1,4 +1,4 @@
-# Matchday
+# ShedTV
 
 A sport-first IPTV player for Fire TV (Fire OS) and Android TV, for Xtream Codes providers.
 
@@ -16,7 +16,7 @@ Every push to `main` builds a signed APK on GitHub Actions and publishes it as t
 
 ## Forking and contributing
 1. Fork this repo, then open your fork's **Actions** tab and enable workflows.
-2. Every push to your fork's `main` builds **Matchday (dev)** — a separate app (`com.matchday.tv.dev`)
+2. Every push to your fork's `main` builds **ShedTV (dev)** — a separate app (`com.shedtv.app.dev`)
    that installs alongside the official one. Download it from your fork's `latest` release.
 3. Send features back with a pull request.
 

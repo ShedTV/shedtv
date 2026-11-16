@@ -72,15 +72,8 @@ fun LoginScreen(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Box(
-                Modifier
-                    .size(56.dp)
-                    .background(Palette.Accent, RoundedCornerShape(14.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("M", color = Palette.Background, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-            }
-            Text("MATCHDAY", color = Palette.Text, fontSize = 40.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            ShedMark(84.dp)
+            ShedTvWordmark(40)
             Text(
                 "Sign in with your provider's Xtream Codes details.",
                 color = Palette.TextSoft,
@@ -152,8 +145,17 @@ private fun Field(
 fun LoadingScreen(message: String) {
     Box(Modifier.fillMaxSize().background(Palette.Background), contentAlignment = Alignment.Center) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("MATCHDAY", color = Palette.Text, fontSize = 32.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            ShedMark(72.dp)
+            ShedTvWordmark(32)
             Text(message, color = Palette.TextMuted, fontSize = 18.sp)
         }
+    }
+}
+
+@Composable
+fun ShedTvWordmark(sizeSp: Int) {
+    Row {
+        Text("Shed", color = Palette.Text, fontSize = sizeSp.sp, fontWeight = FontWeight.ExtraBold)
+        Text("TV", color = Palette.Accent, fontSize = sizeSp.sp, fontWeight = FontWeight.ExtraBold)
     }
 }
