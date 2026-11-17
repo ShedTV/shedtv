@@ -491,7 +491,7 @@ private fun Overlay(vm: AppViewModel, videoInfo: String, sourceLabel: String, re
                     Text("${channel.num}  ·  ${channel.name}", color = Palette.TextSoft, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
                         current?.title ?: channel.name,
-                        color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold,
+                        color = Palette.Text, fontSize = 34.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }

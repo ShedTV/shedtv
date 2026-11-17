@@ -184,6 +184,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var liveRewind by mutableStateOf(prefs.liveRewind)
         private set
 
+    /** Fades and slides between screens. */
+    var animations by mutableStateOf(prefs.animations)
+        private set
+
+    fun setAnimationsEnabled(on: Boolean) {
+        animations = on
+        prefs.animations = on
+    }
+
     fun setLiveRewindEnabled(on: Boolean) {
         liveRewind = on
         prefs.liveRewind = on

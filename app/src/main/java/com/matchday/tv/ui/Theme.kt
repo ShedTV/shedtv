@@ -2,6 +2,11 @@
 
 package com.matchday.tv.ui
 
+import com.matchday.tv.R
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -44,9 +49,43 @@ object Palette {
     val Divider = Color(0x1FFFFFFF)
 }
 
+/** Body text: Inter. */
+val InterFamily = FontFamily(
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_medium, FontWeight.Medium),
+    Font(R.font.inter_semibold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold),
+    Font(R.font.inter_extrabold, FontWeight.ExtraBold),
+)
+
+/** Big text (headings, team names, times): Barlow Condensed, as in the mockups. */
+val DisplayFamily = FontFamily(
+    Font(R.font.barlow_condensed_semibold, FontWeight.SemiBold),
+    Font(R.font.barlow_condensed_bold, FontWeight.Bold),
+)
+
+private fun TextStyle.inter() = copy(fontFamily = InterFamily)
+
+private fun androidx.tv.material3.Typography.withInter() = copy(
+    displayLarge = displayLarge.inter(), displayMedium = displayMedium.inter(), displaySmall = displaySmall.inter(),
+    headlineLarge = headlineLarge.inter(), headlineMedium = headlineMedium.inter(), headlineSmall = headlineSmall.inter(),
+    titleLarge = titleLarge.inter(), titleMedium = titleMedium.inter(), titleSmall = titleSmall.inter(),
+    bodyLarge = bodyLarge.inter(), bodyMedium = bodyMedium.inter(), bodySmall = bodySmall.inter(),
+    labelLarge = labelLarge.inter(), labelMedium = labelMedium.inter(), labelSmall = labelSmall.inter(),
+)
+
+private fun androidx.compose.material3.Typography.withInter() = copy(
+    displayLarge = displayLarge.inter(), displayMedium = displayMedium.inter(), displaySmall = displaySmall.inter(),
+    headlineLarge = headlineLarge.inter(), headlineMedium = headlineMedium.inter(), headlineSmall = headlineSmall.inter(),
+    titleLarge = titleLarge.inter(), titleMedium = titleMedium.inter(), titleSmall = titleSmall.inter(),
+    bodyLarge = bodyLarge.inter(), bodyMedium = bodyMedium.inter(), bodySmall = bodySmall.inter(),
+    labelLarge = labelLarge.inter(), labelMedium = labelMedium.inter(), labelSmall = labelSmall.inter(),
+)
+
 @Composable
 fun MatchdayTheme(content: @Composable () -> Unit) {
     MaterialTheme(
+        typography = androidx.tv.material3.Typography().withInter(),
         colorScheme = darkColorScheme(
             primary = Palette.Accent,
             onPrimary = Palette.Background,
@@ -57,6 +96,7 @@ fun MatchdayTheme(content: @Composable () -> Unit) {
         )
     ) {
         androidx.compose.material3.MaterialTheme(
+            typography = androidx.compose.material3.Typography().withInter(),
             colorScheme = androidx.compose.material3.darkColorScheme(
                 primary = Palette.Accent,
                 onPrimary = Palette.Background,

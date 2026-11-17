@@ -86,7 +86,7 @@ fun LiveTvScreen(vm: AppViewModel) {
     ) {
         // Categories
         Column(Modifier.width(200.dp).fillMaxHeight()) {
-            Text("LIVE TV", color = Palette.Text, fontWeight = FontWeight.Bold, fontSize = 20.sp, letterSpacing = 1.sp,
+            Text("LIVE TV", color = Palette.Text, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, fontSize = 24.sp, letterSpacing = 1.sp,
                 modifier = Modifier.padding(start = 6.dp, top = 2.dp))
             Spacer(Modifier.height(14.dp))
             LazyColumn(

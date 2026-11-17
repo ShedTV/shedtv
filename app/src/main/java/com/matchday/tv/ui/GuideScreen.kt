@@ -131,7 +131,7 @@ fun GuideScreen(vm: AppViewModel) {
         NavRail(vm, Screen.Guide)
         // Categories: moving onto one shows it in the grid; OK or Right goes into the grid.
         Column(Modifier.width(150.dp).fillMaxHeight().padding(start = 8.dp, top = 22.dp)) {
-            Text("GUIDE", color = Palette.Text, fontWeight = FontWeight.Bold, fontSize = 18.sp, letterSpacing = 1.sp,
+            Text("GUIDE", color = Palette.Text, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, fontSize = 22.sp, letterSpacing = 1.sp,
                 modifier = Modifier.padding(start = 8.dp, bottom = 10.dp))
             val cats = vm.categoryList.filter { it.id == vm.selectedCategoryId || vm.channelCount(it.id) > 0 }
             LazyColumn(
@@ -306,7 +306,7 @@ private fun GuideHeader(vm: AppViewModel, channel: Channel?, block: Block?, now:
                         )
                     }
                     Text(
-                        block?.title ?: channel.name, color = Palette.Text, fontSize = 26.sp, fontWeight = FontWeight.Bold,
+                        block?.title ?: channel.name, color = Palette.Text, fontSize = 32.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -317,7 +317,7 @@ private fun GuideHeader(vm: AppViewModel, channel: Channel?, block: Block?, now:
             }
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(formatTime(now), color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+            Text(formatTime(now), color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.SemiBold, fontFamily = DisplayFamily)
             val cat = vm.categoryList.firstOrNull { it.id == vm.selectedCategoryId }?.name.orEmpty()
             Text(cat, color = Palette.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             vm.guideStatus?.let { Text(it, color = Palette.TextMuted, fontSize = 12.sp, maxLines = 2) }

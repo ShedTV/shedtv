@@ -43,6 +43,9 @@ class SportHub(app: Application, private val scope: CoroutineScope) {
         private set
     var upcoming by mutableStateOf<List<Fixture>>(emptyList())
         private set
+    /** Any matches starting in the next 12 hours, for the panel beside the featured match. */
+    var comingUp by mutableStateOf<List<Fixture>>(emptyList())
+        private set
     var searchResults by mutableStateOf<List<Team>>(emptyList())
         private set
     var searching by mutableStateOf(false)
@@ -161,7 +164,15 @@ class SportHub(app: Application, private val scope: CoroutineScope) {
                 .sortedBy { it.entry.start }
                 .distinctBy { SportMatcher.normalise(it.title) + (it.entry.start / 3_600_000) }
                 .take(30)
-            liveNow to next
+            val soon = merged
+                .filter { it.entry.start > now && it.entry.start < now + 12 * 60 * 60_000L && (it.live || (it.homeTeam != null && it.awayTeam != null)) }
+                .sortedWith(compareBy<Fixture>({ it.entry.start }, { rank(it) }))
+                .distinctBy { SportMatcher.normalise(it.title) }
+                .take(5)
+            Triple(liveNow, next, soon)
+        }.let { (a, b, c) ->
+            comingUp = c
+            a to b
         }
         live = liveList
         upcoming = upcomingList

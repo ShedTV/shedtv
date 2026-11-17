@@ -280,7 +280,7 @@ private fun VodOverlay(p: Playable, position: Long, duration: Long, playing: Boo
                 .padding(start = 40.dp, end = 40.dp, top = 80.dp, bottom = 30.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(p.title, color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(p.title, color = Palette.Text, fontSize = 34.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (p.subtitle.isNotBlank()) Text(p.subtitle, color = Palette.TextSoft, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             ProgressBar(if (duration > 0) position.toFloat() / duration else 0f, Modifier.fillMaxWidth(), height = 6.dp, track = Color(0x33FFFFFF))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

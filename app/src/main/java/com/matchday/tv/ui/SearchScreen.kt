@@ -85,7 +85,7 @@ fun SearchScreen(vm: AppViewModel) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                Text("SEARCH", color = Palette.Text, fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text("SEARCH", color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
                 OutlinedTextField(
                     value = vm.searchQuery, onValueChange = { vm.searchQuery = it }, singleLine = true,
                     label = { androidx.compose.material3.Text("Channels, programmes, teams, movies, series") },

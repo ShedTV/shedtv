@@ -4,6 +4,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -103,7 +112,28 @@ private fun App(vm: AppViewModel = viewModel()) {
 
 @Composable
 private fun Screens(vm: AppViewModel) {
-    when (vm.screen) {
+    val animate = vm.animations
+    AnimatedContent(
+        targetState = vm.screen,
+        transitionSpec = { screenTransition(initialState, targetState, animate) },
+        label = "screens",
+    ) { screen -> ScreenFor(vm, screen) }
+}
+
+private val instantScreens = setOf(Screen.Player, Screen.VodPlayer, Screen.Loading)
+private val pageScreens = setOf(Screen.MovieDetails, Screen.SeriesDetails, Screen.Teams, Screen.Categories, Screen.EditSubscription)
+
+/** Quick fades between sections, a short slide for pages opened from them; video always cuts straight in. */
+private fun screenTransition(from: Screen, to: Screen, animate: Boolean): ContentTransform = when {
+    !animate || from in instantScreens || to in instantScreens -> EnterTransition.None togetherWith ExitTransition.None
+    to in pageScreens -> (slideInHorizontally(tween(220)) { it / 14 } + fadeIn(tween(220))) togetherWith fadeOut(tween(120))
+    from in pageScreens -> (slideInHorizontally(tween(200)) { -it / 14 } + fadeIn(tween(200))) togetherWith fadeOut(tween(120))
+    else -> fadeIn(tween(200, delayMillis = 40)) togetherWith fadeOut(tween(140))
+}
+
+@Composable
+private fun ScreenFor(vm: AppViewModel, screen: Screen) {
+    when (screen) {
         Screen.Login -> LoginScreen(
             initial = vm.editingSubscription,
             error = vm.error,

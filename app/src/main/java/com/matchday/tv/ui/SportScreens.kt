@@ -2,6 +2,12 @@
 
 package com.matchday.tv.ui
 
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -133,7 +139,7 @@ fun SportHubScreen(vm: AppViewModel) {
         ) {
             // Header
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("SPORT", color = Palette.Text, fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text("SPORT", color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
                 Spacer(Modifier.width(14.dp))
                 Text(SimpleDateFormat("EEEE d MMMM", Locale.UK).format(Date(now)), color = Palette.TextMuted, fontSize = 15.sp)
                 Spacer(Modifier.weight(1f))
@@ -151,7 +157,7 @@ fun SportHubScreen(vm: AppViewModel) {
                         modifier = Modifier.background(Color(0x1AFFFFFF), RoundedCornerShape(10.dp)).padding(horizontal = 16.dp, vertical = 8.dp))
                 }
                 Spacer(Modifier.width(14.dp))
-                Text(formatTime(now), color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+                Text(formatTime(now), color = Palette.Text, fontSize = 26.sp, fontWeight = FontWeight.SemiBold, fontFamily = DisplayFamily)
             }
 
             if (hub.followed.isEmpty()) {
@@ -165,7 +171,7 @@ fun SportHubScreen(vm: AppViewModel) {
             }
 
             featured?.let { f ->
-                FeaturedMatch(vm, f, now, Modifier.focusRequester(firstFocus))
+                FeaturedMatch(vm, f, now, hub.comingUp, Modifier.focusRequester(firstFocus))
             }
 
             Section(if (live.isEmpty()) "Live now" else "Live now  ·  ${live.size}") {
@@ -209,7 +215,7 @@ fun SportHubScreen(vm: AppViewModel) {
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+        Text(title.uppercase(), color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
         content()
     }
 }
@@ -227,36 +233,109 @@ private fun LiveBadge() {
     )
 }
 
+/** A short display name that fits big type: "Tottenham" rather than "Tottenham Hotspur". */
+private fun displayName(team: Team?, raw: String): String {
+    val name = team?.name?.substringBefore(" (") ?: return raw
+    if (name.length <= 14) return name
+    return team.aliases.filter { it.length in 4..14 }.maxByOrNull { it.length } ?: name
+}
+
+/** The glow behind the featured match, in a team colour that isn't too dark or too pale. */
+private fun glowColour(f: Fixture): Color =
+    listOfNotNull(f.homeTeam?.colour, f.awayTeam?.colour).map { Color(it) }
+        .firstOrNull { it.luminance() in 0.03f..0.75f } ?: Palette.Accent
+
+private fun minsLeft(f: Fixture, now: Long) = ((f.entry.end - now) / 60_000).coerceAtLeast(0)
+
 @Composable
-private fun FeaturedMatch(vm: AppViewModel, f: Fixture, now: Long, modifier: Modifier) {
+private fun FeaturedMatch(vm: AppViewModel, f: Fixture, now: Long, comingUp: List<Fixture>, modifier: Modifier) {
     val hub = vm.sport
-    FocusTile(onClick = { vm.play(f.channel, from = Screen.Sport) }, corner = 20.dp, focusedScale = 1.015f, modifier = modifier.fillMaxWidth()) {
+    val glow by animateColorAsState(glowColour(f), tween(700), label = "glow")
+    Box(
+        Modifier.fillMaxWidth().drawBehind {
+            drawRect(
+                Brush.radialGradient(
+                    listOf(glow.copy(alpha = 0.30f), Color.Transparent),
+                    center = Offset(size.width * 0.32f, size.height * 0.5f),
+                    radius = size.width * 0.5f,
+                )
+            )
+        }
+    ) {
         Row(
-            Modifier.fillMaxWidth().background(Palette.Card).padding(horizontal = 28.dp, vertical = 22.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            Modifier.fillMaxWidth().padding(vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(24.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     LiveBadge()
                     Text(
                         listOf(f.competition, f.channel.name).filter { it.isNotBlank() }.joinToString("  ·  "),
-                        color = Palette.TextSoft, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        color = Palette.TextSoft, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    TeamBadge(hub, f.homeTeam, f.home, 58.dp)
-                    Text(f.homeTeam?.name?.substringBefore(" (") ?: f.home, color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-                    Text("v", color = Palette.Accent, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                    Text(f.awayTeam?.name?.substringBefore(" (") ?: f.away, color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-                    TeamBadge(hub, f.awayTeam, f.away, 58.dp)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    TeamBadge(hub, f.homeTeam, f.home, 42.dp)
+                    Text(displayName(f.homeTeam, f.home).uppercase(), color = Palette.Text, fontSize = 32.sp, fontWeight = FontWeight.Bold,
+                        fontFamily = DisplayFamily, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    Text("V", color = Palette.Accent, fontSize = 30.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily)
+                    Text(displayName(f.awayTeam, f.away).uppercase(), color = Palette.Text, fontSize = 32.sp, fontWeight = FontWeight.Bold,
+                        fontFamily = DisplayFamily, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    TeamBadge(hub, f.awayTeam, f.away, 42.dp)
                 }
-                ProgressBar(f.entry.progress(now), Modifier.width(420.dp), height = 5.dp)
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Text("KO ${formatTime(f.entry.start)}", color = Palette.Text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, fontFamily = DisplayFamily)
+                    Text("${minsLeft(f, now)} min left", color = Palette.Accent, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, fontFamily = DisplayFamily)
+                    Text("ends ${formatTime(f.entry.end)}", color = Palette.TextMuted, fontSize = 13.sp, modifier = Modifier.padding(bottom = 2.dp))
+                }
+                ProgressBar(f.entry.progress(now), Modifier.fillMaxWidth(0.9f), height = 4.dp)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    FocusTile(onClick = { vm.play(f.channel, from = Screen.Sport) }, corner = 10.dp, focusedScale = 1.05f, modifier = modifier) {
+                        Text("▶  Watch live", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.background(Color(0x26FFFFFF), RoundedCornerShape(10.dp)).padding(horizontal = 22.dp, vertical = 10.dp))
+                    }
+                    if (f.alternatives.isNotEmpty()) {
+                        Text("+${f.alternatives.size} backup stream" + if (f.alternatives.size == 1) "" else "s", color = Palette.TextMuted, fontSize = 12.sp)
+                    }
+                }
             }
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("▶  Watch live", color = Palette.Accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("${formatTime(f.entry.start)} – ${formatTime(f.entry.end)}", color = Palette.TextMuted, fontSize = 13.sp)
-                if (f.alternatives.isNotEmpty()) Text("${f.alternatives.size} backup stream" + if (f.alternatives.size == 1) "" else "s", color = Palette.TextMuted, fontSize = 12.sp)
+            ComingUpPanel(vm, comingUp, now)
+        }
+    }
+}
+
+/** Beside the featured match: what's starting soon, so you can plan the afternoon. */
+@Composable
+private fun ComingUpPanel(vm: AppViewModel, list: List<Fixture>, now: Long) {
+    Column(
+        Modifier.width(280.dp).background(Color(0xCC10151B), RoundedCornerShape(16.dp))
+            .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(16.dp)).padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text("COMING UP", color = Palette.TextMuted, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, fontFamily = DisplayFamily,
+            letterSpacing = 1.5.sp, modifier = Modifier.padding(start = 6.dp, bottom = 4.dp))
+        if (list.isEmpty()) {
+            Text("No more matches in the next 12 hours of your guide.", color = Palette.TextMuted, fontSize = 12.sp, modifier = Modifier.padding(6.dp))
+        }
+        list.forEach { f ->
+            FocusTile(onClick = { vm.play(f.channel, from = Screen.Sport) }, corner = 10.dp, focusedScale = 1.03f, modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(Modifier.width(46.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(formatTime(f.entry.start), fontSize = 19.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily)
+                        if (whenLabel(f.entry.start, now) != "Today") {
+                            Text(whenLabel(f.entry.start, now).uppercase(), fontSize = 9.sp, fontWeight = FontWeight.SemiBold,
+                                color = LocalContentColor.current.copy(alpha = 0.6f))
+                        }
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(f.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(f.channel.name, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            color = LocalContentColor.current.copy(alpha = 0.65f))
+                    }
+                    if (f.involves(vm.sport.followedKeys)) Text("★", fontSize = 12.sp, color = Palette.Accent)
+                }
             }
         }
     }
@@ -275,7 +354,9 @@ private fun LiveCard(vm: AppViewModel, f: Fixture, now: Long) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LiveBadge()
-                Text(f.competition.ifBlank { if (f.homeTeam?.sport == RUGBY_LEAGUE) "Rugby league" else "Football" }, color = Palette.TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(f.competition.ifBlank { if (f.homeTeam?.sport == RUGBY_LEAGUE) "Rugby league" else "Football" }, color = Palette.TextMuted,
+                    fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text("${minsLeft(f, now)}m left", color = Color(0xFFFF6B6B), fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             TeamLine(hub, f.homeTeam, f.home)
             TeamLine(hub, f.awayTeam, f.away)
@@ -289,7 +370,7 @@ private fun LiveCard(vm: AppViewModel, f: Fixture, now: Long) {
 private fun TeamLine(hub: SportHub, team: Team?, name: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         TeamBadge(hub, team, name, 30.dp)
-        Text(team?.name?.substringBefore(" (") ?: name, color = Palette.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(displayName(team, name), color = Palette.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -304,7 +385,7 @@ private fun UpcomingCard(vm: AppViewModel, f: Fixture, now: Long) {
         ) {
             Column(Modifier.width(64.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(whenLabel(f.entry.start, now).uppercase(), color = Palette.TextMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Text(formatTime(f.entry.start), color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text(formatTime(f.entry.start), color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -343,7 +424,7 @@ fun TeamPickerScreen(vm: AppViewModel) {
 
     Row(Modifier.fillMaxSize().background(Palette.Background).padding(start = 40.dp, end = 32.dp, top = 32.dp)) {
         Column(Modifier.width(240.dp).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("MY TEAMS", color = Palette.Text, fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("MY TEAMS", color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
             Text("OK to follow or unfollow", color = Palette.TextMuted, fontSize = 13.sp)
             Text(hub.badgeStatus.orEmpty(), color = Palette.Accent, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp))
             LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp), contentPadding = PaddingValues(4.dp), modifier = Modifier.weight(1f)) {

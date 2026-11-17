@@ -120,7 +120,7 @@ private fun BrowseLayout(
             horizontalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             Column(Modifier.width(200.dp).fillMaxHeight()) {
-                Text(title, color = Palette.Text, fontWeight = FontWeight.Bold, fontSize = 20.sp, letterSpacing = 1.sp,
+                Text(title, color = Palette.Text, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, fontSize = 24.sp, letterSpacing = 1.sp,
                     modifier = Modifier.padding(start = 6.dp, top = 2.dp))
                 Spacer(Modifier.height(14.dp))
                 LazyColumn(
@@ -251,7 +251,7 @@ fun MovieDetailsScreen(vm: AppViewModel) {
                 if (movie.poster != null) AsyncImage(model = movie.poster, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(movie.name, color = Palette.Text, fontSize = 34.sp, fontWeight = FontWeight.Bold, lineHeight = 38.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(movie.name.uppercase(), color = Palette.Text, fontSize = 42.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, lineHeight = 44.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 val meta = listOfNotNull(
                     info?.year?.takeIf { it.isNotBlank() }, info?.genre?.takeIf { it.isNotBlank() },
                     info?.duration?.takeIf { it.isNotBlank() }, (info?.rating ?: movie.rating)?.let { "★ $it" },
@@ -301,7 +301,7 @@ fun SeriesDetailsScreen(vm: AppViewModel) {
 
     DetailsBackdrop(info?.backdrop ?: show.cover) {
         Column(Modifier.fillMaxSize().padding(start = 56.dp, end = 40.dp, top = 40.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(show.name, color = Palette.Text, fontSize = 32.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(show.name.uppercase(), color = Palette.Text, fontSize = 40.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, maxLines = 1, overflow = TextOverflow.Ellipsis)
             val meta = listOf(info?.year ?: show.year, info?.genre ?: show.genre, show.rating?.let { "★ $it" }.orEmpty(),
                 if (seasons.isNotEmpty()) "${seasons.size} season" + (if (seasons.size == 1) "" else "s") else "")
                 .filter { it.isNotBlank() }.joinToString("  ·  ")

@@ -63,7 +63,7 @@ fun CategoriesScreen(vm: AppViewModel) {
     Column(Modifier.fillMaxSize().background(Palette.Background).padding(start = 40.dp, end = 32.dp, top = 24.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column {
-                Text("MANAGE CATEGORIES", color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text("MANAGE CATEGORIES", color = Palette.Text, fontSize = 26.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
                 Text("${all.size - hidden.count { id -> all.any { it.id == id } }} of ${all.size} shown  ·  OK to show or hide  ·  favourites always show",
                     color = Palette.TextMuted, fontSize = 13.sp)
             }

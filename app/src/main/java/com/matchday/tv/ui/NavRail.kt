@@ -115,7 +115,7 @@ fun ComingSoonScreen(vm: AppViewModel, current: Screen, title: String, body: Str
             Modifier.fillMaxSize().padding(48.dp),
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(title.uppercase(), color = Palette.Text, fontSize = 34.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text(title.uppercase(), color = Palette.Text, fontSize = 38.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
             Spacer(Modifier.height(10.dp))
             Text(body, color = Palette.TextMuted, fontSize = 17.sp)
         }

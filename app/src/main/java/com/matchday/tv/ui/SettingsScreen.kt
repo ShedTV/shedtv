@@ -60,7 +60,7 @@ fun SettingsScreen(vm: AppViewModel) {
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 32.dp, end = 32.dp, top = 20.dp, bottom = 72.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("SETTINGS", color = Palette.Text, fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("SETTINGS", color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
             vm.error?.let { Text(it, color = Palette.Live, fontSize = 14.sp) }
 
             // ---- Subscriptions ----
@@ -146,6 +146,14 @@ fun SettingsScreen(vm: AppViewModel) {
                 Chip("Refresh guide now") { vm.loadGuide(force = true) }
             }
 
+            // ---- Look ----
+            Spacer(Modifier.height(2.dp))
+            Heading("Animations", "Fades and slides between screens. Turn off if anything feels slow.")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Chip("On", selected = vm.animations) { vm.setAnimationsEnabled(true) }
+                Chip("Off", selected = !vm.animations) { vm.setAnimationsEnabled(false) }
+            }
+
             // ---- App updates ----
             Spacer(Modifier.height(2.dp))
             Heading("App update", vm.updater.status ?: "ShedTV ${vm.updater.versionName}")
@@ -153,6 +161,8 @@ fun SettingsScreen(vm: AppViewModel) {
                 Chip(if (vm.updater.busy) "Working…" else "Check for updates") { vm.updater.check(silent = false) }
                 if (vm.updater.available) Chip("Install build ${vm.updater.latestBuild}", selected = true) { vm.updater.install() }
             }
+            Text("Fonts: Barlow Condensed and Inter, used under the SIL Open Font License 1.1 (full text included in the app).",
+                color = Palette.TextMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
         }
     }
 }
