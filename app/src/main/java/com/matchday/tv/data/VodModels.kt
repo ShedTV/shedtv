@@ -74,6 +74,8 @@ data class Playable(
     val upNext: List<Playable> = emptyList(),
     /** User agent of the subscription this comes from. */
     val userAgent: String? = null,
+    /** Set when playing a downloaded copy. */
+    val downloadId: String? = null,
 )
 
 data class WatchEntry(

@@ -88,6 +88,14 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("mergeQualities", false)
         set(value) = sp.edit().putBoolean("mergeQualities", value).apply()
 
+    var downloadFolder: String?
+        get() = sp.getString("downloadFolder", null)
+        set(value) = sp.edit().putString("downloadFolder", value).apply()
+
+    var downloadWifiOnly: Boolean
+        get() = sp.getBoolean("downloadWifiOnly", true)
+        set(value) = sp.edit().putBoolean("downloadWifiOnly", value).apply()
+
     var recording: Boolean
         get() = sp.getBoolean("recording", false)
         set(value) = sp.edit().putBoolean("recording", value).apply()

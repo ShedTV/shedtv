@@ -180,6 +180,7 @@ private fun ScreenFor(vm: AppViewModel, screen: Screen) {
         Screen.Categories -> com.matchday.tv.ui.CategoriesScreen(vm)
         Screen.Recordings -> com.matchday.tv.ui.RecordingsScreen(vm)
         Screen.RecordingPlayer -> com.matchday.tv.ui.RecordingPlayerScreen(vm)
+        Screen.Downloads -> com.matchday.tv.ui.DownloadsScreen(vm)
         Screen.Loading -> LoadingScreen(vm.loadingMessage)
         Screen.Sport -> SportHubScreen(vm)
         Screen.Teams -> TeamPickerScreen(vm)

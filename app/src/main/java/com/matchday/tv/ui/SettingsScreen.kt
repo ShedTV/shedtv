@@ -162,6 +162,35 @@ fun SettingsScreen(vm: AppViewModel) {
                 Chip("Refresh guide now") { vm.loadGuide(force = true) }
             }
 
+            // ---- Downloads ----
+            Spacer(Modifier.height(2.dp))
+            Heading("Downloads", "Films and episodes to watch offline. Hold OK on an episode, or use Download on a film or season.")
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree(),
+            ) { uri -> if (uri != null) vm.pickedDownloadFolder(uri) }
+            val canPick = remember {
+                android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT_TREE).resolveActivity(ctx.packageManager) != null
+            }
+            val current = vm.downloadFolder()
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                com.matchday.tv.download.DownloadManager.volumes().forEach { v ->
+                    Chip("${v.label} · %.1f GB free".format(v.freeBytes / 1073741824.0), selected = current == v.dir.path) { vm.setDownloadFolder(v.dir.path) }
+                }
+                if (current?.startsWith("content://") == true) {
+                    Chip("Folder: " + com.matchday.tv.download.DownloadManager.folderName(current), selected = true) { }
+                }
+                if (canPick) Chip("Choose folder…") { runCatching { picker.launch(null) }.onFailure { vm.flash = "This device doesn't have a folder picker." } }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Chip("Wi-Fi only", selected = vm.downloadWifiOnly) { vm.turnDownloadWifiOnly(true) }
+                Chip("Any connection", selected = !vm.downloadWifiOnly) { vm.turnDownloadWifiOnly(false) }
+            }
+            Text(
+                "ShedTV's own folders are removed if ShedTV is uninstalled. A chosen folder keeps your files, and other apps such as VLC can play them. Downloads use one connection and pause while you watch on a one-connection subscription.",
+                color = Palette.TextMuted, fontSize = 11.sp,
+            )
+
             // ---- Recording ----
             Spacer(Modifier.height(2.dp))
             Heading("Recording", "Off by default. Records to this device or a USB drive, and keeps going through glitches by switching source.")

@@ -270,6 +270,16 @@ fun MovieDetailsScreen(vm: AppViewModel) {
                             lib.moviePlayable(movie, fromStart = true)?.let { vm.playVod(it) }
                         }
                     }
+                    val dl = com.matchday.tv.download.DownloadManager.find(lib.historyId(movie.subId, movie.id))
+                    ActionButton(
+                        when {
+                            dl == null -> "⬇  Download"
+                            dl.status == "done" -> "✓  Downloaded"
+                            dl.status == "failed" -> "⚠  Download failed"
+                            else -> "⬇  ${(dl.progress * 100).toInt()}%"
+                        },
+                        primary = false,
+                    ) { if (dl == null) vm.downloadMovie(movie) else vm.navigate(Screen.Downloads) }
                 }
                 lib.detailStatus?.let { Text(it, color = Palette.TextMuted, fontSize = 14.sp) }
                 info?.plot?.takeIf { it.isNotBlank() }?.let {
@@ -322,6 +332,14 @@ fun SeriesDetailsScreen(vm: AppViewModel) {
                 }
             }
 
+            if (episodes.isNotEmpty()) {
+                val have = episodes.count { e -> com.matchday.tv.download.DownloadManager.find(lib.historyId(show.subId, e.id)) != null }
+                ActionButton(
+                    if (have == episodes.size) "✓  Season ${lib.selectedSeason} in Downloads" else "⬇  Download season ${lib.selectedSeason}" + if (have > 0) " (${episodes.size - have} more)" else "",
+                    primary = false,
+                ) { if (have == episodes.size) vm.navigate(Screen.Downloads) else vm.downloadEpisodes(show, episodes, episodes.indices.toList()) }
+            }
+
             if (seasons.size > 1) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 6.dp, horizontal = 2.dp)) {
                     items(seasons.keys.toList(), key = { it }) { s ->
@@ -344,6 +362,7 @@ fun SeriesDetailsScreen(vm: AppViewModel) {
                     val w = watched[lib.historyId(show.subId, ep.id)]
                     FocusTile(
                         onClick = { lib.episodePlayable(show, episodes, index, fromStart = false)?.let { vm.playVod(it) } },
+                        onLongClick = { vm.downloadEpisodes(show, episodes, listOf(index)) },
                         corner = 12.dp, focusedScale = 1.02f,
                         modifier = Modifier.width(720.dp).then(if (index == 0 && lastWatched == null) Modifier.focusRequester(firstFocus) else Modifier),
                     ) {
@@ -358,7 +377,14 @@ fun SeriesDetailsScreen(vm: AppViewModel) {
                                     "${ep.num}. " + ep.title.ifBlank { "Episode ${ep.num}" },
                                     fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                                 )
-                                val sub = listOfNotNull(ep.duration.takeIf { it.isNotBlank() }, w?.let { "Resume at ${fmtClock(it.position)}" }).joinToString("  ·  ")
+                                val dl = com.matchday.tv.download.DownloadManager.find(lib.historyId(show.subId, ep.id))
+                                val dlText = when {
+                                    dl == null -> null
+                                    dl.status == "done" -> "✓ Downloaded"
+                                    dl.status == "failed" -> "⚠ Download failed"
+                                    else -> "⬇ ${(dl.progress * 100).toInt()}%"
+                                }
+                                val sub = listOfNotNull(ep.duration.takeIf { it.isNotBlank() }, w?.let { "Resume at ${fmtClock(it.position)}" }, dlText).joinToString("  ·  ")
                                 if (sub.isNotBlank()) Text(sub, fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = 0.7f))
                                 if (ep.plot.isNotBlank()) Text(ep.plot, fontSize = 12.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, color = LocalContentColor.current.copy(alpha = 0.8f))
                             }

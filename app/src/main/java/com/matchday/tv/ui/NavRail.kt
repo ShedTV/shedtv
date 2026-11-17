@@ -42,6 +42,7 @@ object Icons {
     const val GUIDE = "M3 5h18M3 12h18M3 19h18M8 5v14"
     const val MOVIES = "M4 4h16v16H4zM4 9h16M9 4v5M15 4v5"
     const val SERIES = "M3 6h18v12H3zM7 21h10"
+    const val DOWNLOAD = "M11 4h2v9l3.5-3.5 1.4 1.4L12 16.8l-5.9-5.9 1.4-1.4L11 13zM5 18h14v2H5z"
     const val REC = "M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16zM12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z"
     const val SEARCH = "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-4-4"
     const val SETTINGS = "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"
@@ -84,7 +85,10 @@ fun NavRail(vm: AppViewModel, current: Screen) {
     ) {
         ShedMark(38.dp)
         Spacer(Modifier.height(6.dp))
-        (if (vm.recordingEnabled) railItems.take(railItems.size - 2) + RailItem("Recordings", Icons.REC, Screen.Recordings) + railItems.takeLast(2) else railItems).forEach { item ->
+        (railItems.take(railItems.size - 2) +
+            (if (com.matchday.tv.download.DownloadManager.items.isNotEmpty()) listOf(RailItem("Downloads", Icons.DOWNLOAD, Screen.Downloads)) else emptyList()) +
+            (if (vm.recordingEnabled) listOf(RailItem("Recordings", Icons.REC, Screen.Recordings)) else emptyList()) +
+            railItems.takeLast(2)).forEach { item ->
             val selected = item.screen == current
             FocusTile(
                 onClick = { vm.navigate(item.screen) },

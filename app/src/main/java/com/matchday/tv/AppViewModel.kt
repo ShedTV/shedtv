@@ -41,6 +41,7 @@ sealed interface Screen {
     data object Categories : Screen
     data object Recordings : Screen
     data object RecordingPlayer : Screen
+    data object Downloads : Screen
     data object EditSubscription : Screen
 }
 
@@ -124,6 +125,130 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val backups = mutableStateMapOf<String, BackupSub>()
     private val backupClients = HashMap<String, XtreamClient>()
     private var backupJob: Job? = null
+
+    // ---------- Downloads ----------
+    init {
+        com.matchday.tv.download.DownloadManager.init(app)
+        com.matchday.tv.download.DownloadManager.wifiOnly = prefs.downloadWifiOnly
+    }
+
+    /** True when ShedTV opened without the internet and is showing downloads only. */
+    var offline by mutableStateOf(false)
+        private set
+    val isOnline: Boolean get() = client != null
+
+    var downloadWifiOnly by mutableStateOf(prefs.downloadWifiOnly)
+        private set
+
+    fun turnDownloadWifiOnly(on: Boolean) {
+        downloadWifiOnly = on
+        prefs.downloadWifiOnly = on
+        com.matchday.tv.download.DownloadManager.wifiOnly = on
+        com.matchday.tv.download.DownloadManager.kick()
+    }
+
+    var downloadFolderPref by mutableStateOf(prefs.downloadFolder)
+        private set
+
+    /** Where new downloads go: a folder the user picked, a chosen storage volume, or this device. */
+    fun downloadFolder(): String? {
+        val vols = com.matchday.tv.download.DownloadManager.volumes()
+        val p = downloadFolderPref
+        if (p != null && p.startsWith("content://")) {
+            val granted = getApplication<Application>().contentResolver.persistedUriPermissions.any { it.uri.toString() == p && it.isWritePermission }
+            if (granted) return p
+        }
+        return vols.firstOrNull { it.dir.path == p }?.dir?.path ?: vols.firstOrNull()?.dir?.path
+    }
+
+    fun setDownloadFolder(value: String) {
+        downloadFolderPref = value
+        prefs.downloadFolder = value
+    }
+
+    fun pickedDownloadFolder(uri: android.net.Uri) {
+        runCatching {
+            getApplication<Application>().contentResolver.takePersistableUriPermission(uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+            setDownloadFolder(uri.toString())
+        }.onFailure { flash = "Couldn't use that folder." }
+    }
+
+    fun downloadLocationLabel(): String {
+        val f = downloadFolder() ?: return "No storage available"
+        if (f.startsWith("content://")) return "Folder: " + com.matchday.tv.download.DownloadManager.folderName(f)
+        val v = com.matchday.tv.download.DownloadManager.volumes().firstOrNull { it.dir.path == f }
+        return (v?.label ?: "This device") + (v?.let { " · %.1f GB free".format(it.freeBytes / 1073741824.0) } ?: "")
+    }
+
+    private fun queueDownload(p: com.matchday.tv.data.Playable, subId: String?, season: Int, episode: Int, fileName: String): Boolean {
+        val folder = downloadFolder() ?: run { flash = "No storage available for downloads."; return false }
+        if (com.matchday.tv.download.DownloadManager.find(p.id) != null) return false
+        com.matchday.tv.download.DownloadManager.add(
+            com.matchday.tv.download.DownloadItem(
+                id = System.nanoTime().toString(36), kind = p.kind, historyId = p.id, parentId = p.parentId,
+                title = p.title, subtitle = p.subtitle, image = p.image, season = season, episode = episode,
+                url = p.url, userAgent = p.userAgent ?: UserAgents.current, subId = subId ?: activeSubscription?.id,
+                fileName = fileName + "." + p.url.substringAfterLast('.', "mkv").take(5), location = "",
+                totalBytes = 0, doneBytes = 0, status = "queued", message = "", position = 0, duration = 0, added = 0,
+            ),
+            folder,
+        )
+        return true
+    }
+
+    fun downloadMovie(item: com.matchday.tv.data.VodItem) {
+        val p = library.moviePlayable(item, fromStart = true) ?: return
+        val year = library.movieInfo?.takeIf { library.openMovie?.id == item.id }?.year?.take(4)?.takeIf { it.length == 4 }
+        if (queueDownload(p, item.subId, 0, 0, item.name + (year?.let { " ($it)" } ?: "")))
+            flash = "Downloading ${item.name}" + if (downloadWifiOnly) " (on Wi-Fi)" else ""
+    }
+
+    fun downloadEpisodes(show: com.matchday.tv.data.SeriesItem, episodes: List<com.matchday.tv.data.Episode>, indices: List<Int>) {
+        var n = 0
+        indices.forEach { i ->
+            val ep = episodes.getOrNull(i) ?: return@forEach
+            val p = library.episodePlayable(show, episodes, i, fromStart = true)?.copy(upNext = emptyList()) ?: return@forEach
+            val name = "%s - S%02dE%02d".format(show.name, ep.season, ep.num) + (ep.title.takeIf { it.isNotBlank() && !it.contains(show.name, true) }?.let { " - $it" } ?: "")
+            if (queueDownload(p, show.subId, ep.season, ep.num, name)) n++
+        }
+        flash = when {
+            n == 0 -> "Already in Downloads."
+            n == 1 -> "Added 1 episode to Downloads"
+            else -> "Added $n episodes to Downloads"
+        }
+    }
+
+    /** Play a finished download, with the following downloaded episodes as up next. */
+    fun playDownload(d: com.matchday.tv.download.DownloadItem) {
+        fun playable(x: com.matchday.tv.download.DownloadItem, start: Long) = com.matchday.tv.data.Playable(
+            kind = x.kind, id = x.historyId, title = x.title, subtitle = x.subtitle, url = x.playUri, image = x.image,
+            parentId = x.parentId, startAt = start, downloadId = x.id,
+        )
+        val online = if (isOnline) library.resumePoint(d.kind, d.historyId)?.position else null
+        val start = online ?: d.position.takeIf { d.duration > 0 && d.position < d.duration - 120_000 } ?: 0
+        val next = if (d.kind == "episode") com.matchday.tv.download.DownloadManager.items
+            .filter { it.status == "done" && it.parentId == d.parentId && (it.season to it.episode).let { (s, e) -> s > d.season || (s == d.season && e > d.episode) } }
+            .sortedWith(compareBy({ it.season }, { it.episode })).map { playable(it, 0) } else emptyList()
+        playVod(playable(d, start).copy(upNext = next))
+    }
+
+    fun goOnline() {
+        offline = false
+        activeSubscription?.let { connect(it, attempts = 2) } ?: run { screen = Screen.Login }
+    }
+
+    private fun holdDownloadsFor(s: Screen) {
+        val watching = s == Screen.Player || s == Screen.VodPlayer && library.playing?.downloadId == null ||
+            (previewEnabled && (s == Screen.Live || s == Screen.Guide))
+        val sub = activeSubscription?.id
+        val hold = if (watching && sub != null && limitFor(null) <= 1) sub else null
+        val dm = com.matchday.tv.download.DownloadManager
+        if (hold != null && dm.holdSub != hold && dm.items.any { it.status == "downloading" && it.subId == hold }) {
+            flash = "Downloads paused while you watch (1 connection). They carry on afterwards."
+        }
+        dm.hold(hold)
+    }
 
     // ---------- Recording ----------
     init { com.matchday.tv.record.RecorderManager.init(app) }
@@ -402,7 +527,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val channels: List<Channel> get() = allChannels
 
     init {
-        activeSubscription?.let { connect(it, attempts = 4) }
+        val cm = app.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        if (cm.activeNetwork == null && com.matchday.tv.download.DownloadManager.items.any { it.status == "done" }) {
+            // No internet at all (on a plane): go straight to downloads.
+            offline = true
+            screen = Screen.Downloads
+        } else {
+            activeSubscription?.let { connect(it, attempts = 4) }
+        }
         updater.check(silent = true)
         // Keep fixtures, alerts and the guide fresh while the app is open.
         viewModelScope.launch {
@@ -458,6 +590,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun onScreenShown(s: Screen) {
         val keep = s == Screen.Player || (previewEnabled && (s == Screen.Live || s == Screen.Guide))
         if (!keep) live.stop()
+        holdDownloadsFor(s)
     }
 
     override fun onCleared() {
@@ -680,6 +813,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: Exception) {
                 error = "${sub.name}: " + (e.message ?: "couldn't connect to the provider.")
                 UserAgents.current = previous?.userAgent ?: UserAgents.DEFAULT
+                val noNetwork = e is java.net.UnknownHostException || e is java.net.ConnectException || e is java.net.SocketTimeoutException
+                if (noNetwork && !hadSession && com.matchday.tv.download.DownloadManager.items.any { it.status == "done" }) {
+                    offline = true
+                    screen = Screen.Downloads
+                    return@launch
+                }
                 screen = when {
                     saveOnSuccess -> Screen.EditSubscription
                     hadSession || subscriptions.size > 1 -> Screen.Settings
@@ -772,7 +911,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun playVod(p: com.matchday.tv.data.Playable) {
-        library.playing = p
+        // Play the downloaded copy when there is one.
+        val d = if (p.downloadId == null) com.matchday.tv.download.DownloadManager.find(p.id)?.takeIf { it.status == "done" } else null
+        library.playing = if (d != null) p.copy(url = d.playUri, downloadId = d.id) else p
         returnScreen = screen
         screen = Screen.VodPlayer
     }

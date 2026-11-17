@@ -23,12 +23,17 @@ class RecordingService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (RecorderManager.activeCount() == 0) {
+        if (!needed()) {
             stopSelf()
             return START_NOT_STICKY
         }
         val titles = RecorderManager.activeTitles()
-        val n = notification(if (titles.size == 1) "Recording: ${titles[0]}" else "Recording ${titles.size} programmes")
+        val text = when {
+            titles.size == 1 -> "Recording: ${titles[0]}"
+            titles.size > 1 -> "Recording ${titles.size} programmes"
+            else -> com.matchday.tv.download.DownloadManager.activeTitle()?.let { "Downloading: $it" } ?: "Downloads waiting"
+        }
+        val n = notification(text)
         if (Build.VERSION.SDK_INT >= 29) startForeground(ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC) else startForeground(ID, n)
         if (wake == null) {
             wake = (getSystemService(POWER_SERVICE) as PowerManager)
@@ -61,10 +66,12 @@ class RecordingService : Service() {
         private const val ID = 4401
         private const val CHANNEL = "recordings"
 
-        /** Start, refresh or stop the service to match what's recording. */
+        private fun needed() = RecorderManager.activeCount() > 0 || com.matchday.tv.download.DownloadManager.busy
+
+        /** Start, refresh or stop the service to match what's recording or downloading. */
         fun update(context: Context) {
             val intent = Intent(context, RecordingService::class.java)
-            if (RecorderManager.activeCount() > 0) {
+            if (needed()) {
                 runCatching {
                     if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent) else context.startService(intent)
                 }

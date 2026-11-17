@@ -93,7 +93,7 @@ fun VodPlayerScreen(vm: AppViewModel) {
             .setConnectTimeoutMs(15_000)
             .setReadTimeoutMs(30_000)
         ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(http))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(androidx.media3.datasource.DefaultDataSource.Factory(context, http)))
             .build()
             .apply {
                 playWhenReady = true
@@ -105,7 +105,10 @@ fun VodPlayerScreen(vm: AppViewModel) {
     fun save() {
         val p = item ?: return
         val d = player.duration
-        if (d > 0 && d != C.TIME_UNSET) lib.savePosition(p, player.currentPosition, d)
+        if (d > 0 && d != C.TIME_UNSET) {
+            com.matchday.tv.download.DownloadManager.savePosition(p.id, player.currentPosition, d)
+            if (vm.isOnline) lib.savePosition(p, player.currentPosition, d)
+        }
     }
     fun playNext(): Boolean {
         val p = item ?: return false
