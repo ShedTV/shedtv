@@ -51,7 +51,7 @@ object Palette {
     val Text = Color(0xFFF2F5F8)
     val TextSoft = Color(0xFFC9D3DE)
     val TextMuted = Color(0xFF8C9AAB)
-    val Accent = Color(0xFF3DC45F)
+    val Accent = Color(0xFF44C470)
     val Live = Color(0xFFFF3B3B)
     val Divider = Color(0x1FFFFFFF)
 }
@@ -171,7 +171,7 @@ fun ProgressBar(progress: Float, modifier: Modifier = Modifier, height: Dp = 4.d
 @Composable
 fun ShedMark(size: Dp) {
     androidx.compose.foundation.Image(
-        painter = androidx.compose.ui.res.painterResource(R.drawable.ic_shed),
+        painter = androidx.compose.ui.res.painterResource(R.drawable.shed_mark),
         contentDescription = "ShedTV",
         modifier = Modifier.size(size),
     )
