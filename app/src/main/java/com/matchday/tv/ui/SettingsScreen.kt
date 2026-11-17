@@ -157,8 +157,8 @@ fun SettingsScreen(vm: AppViewModel) {
             Spacer(Modifier.height(2.dp))
             Heading("Preview window", "Plays the highlighted channel, muted, in Live TV and the guide. Uses your one connection, and carries on into full screen when you press OK.")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Chip("On", selected = vm.previewEnabled) { vm.setPreviewEnabled(true) }
-                Chip("Off", selected = !vm.previewEnabled) { vm.setPreviewEnabled(false) }
+                Chip("On", selected = vm.previewEnabled) { vm.turnPreview(true) }
+                Chip("Off", selected = !vm.previewEnabled) { vm.turnPreview(false) }
             }
             Spacer(Modifier.height(2.dp))
             Heading("Stay at 50Hz after watching", "Stops the TV blanking when you go back to the menus. Needs Match Original Frame Rate on in Fire TV settings.")

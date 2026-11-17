@@ -217,7 +217,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var previewEnabled by mutableStateOf(prefs.preview)
         private set
 
-    fun setPreviewEnabled(on: Boolean) {
+    fun turnPreview(on: Boolean) {
         previewEnabled = on
         prefs.preview = on
         if (!on && screen != Screen.Player) live.stop()
