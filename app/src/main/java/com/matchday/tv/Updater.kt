@@ -25,6 +25,10 @@ import java.io.IOException
 /** Checks the GitHub "latest" release for a newer build, downloads it and hands it to the installer. */
 class Updater(private val app: Application, private val scope: CoroutineScope) {
 
+    init {
+        current = this
+    }
+
     @Suppress("DEPRECATION")
     private val info = runCatching { app.packageManager.getPackageInfo(app.packageName, 0) }.getOrNull()
 
@@ -43,6 +47,8 @@ class Updater(private val app: Application, private val scope: CoroutineScope) {
     var busy by mutableStateOf(false)
         private set
     private var apkUrl: String? = null
+    /** The asset's own API address: unique per build, so no cache can hand back an older file. */
+    private var assetApiUrl: String? = null
 
     val available: Boolean get() = (latestBuild ?: 0) > currentBuild
 
@@ -53,9 +59,10 @@ class Updater(private val app: Application, private val scope: CoroutineScope) {
             busy = true
             if (!silent) status = "Checking for updates…"
             try {
-                val (build, url) = withContext(Dispatchers.IO) { fetchLatest() }
+                val (build, urls) = withContext(Dispatchers.IO) { fetchLatest() }
                 latestBuild = build
-                apkUrl = url
+                apkUrl = urls.first
+                assetApiUrl = urls.second
                 status = when {
                     build > currentBuild -> "Build $build is available (you have build $currentBuild)."
                     silent -> status
@@ -68,7 +75,7 @@ class Updater(private val app: Application, private val scope: CoroutineScope) {
         }
     }
 
-    private fun fetchLatest(): Pair<Int, String> {
+    private fun fetchLatest(): Pair<Int, Pair<String, String?>> {
         val request = Request.Builder()
             .url("https://api.github.com/repos/$repo/releases/latest")
             .header("User-Agent", USER_AGENT)
@@ -81,36 +88,107 @@ class Updater(private val app: Application, private val scope: CoroutineScope) {
         val root = Json.parseToJsonElement(body) as? JsonObject ?: throw IOException("unexpected reply")
         val name = (root["name"] as? JsonPrimitive)?.contentOrNull.orEmpty()
         val build = Regex("build (\\d+)").find(name)?.groupValues?.get(1)?.toIntOrNull() ?: throw IOException("no build number")
-        val url = (root["assets"] as? JsonArray)?.firstNotNullOfOrNull { a ->
-            ((a as? JsonObject)?.get("browser_download_url") as? JsonPrimitive)?.contentOrNull?.takeIf { it.endsWith(".apk") }
+        val asset = (root["assets"] as? JsonArray)?.mapNotNull { it as? JsonObject }?.firstOrNull { a ->
+            (a["browser_download_url"] as? JsonPrimitive)?.contentOrNull?.endsWith(".apk") == true
         } ?: throw IOException("no download in the release")
-        return build to url
+        val url = (asset["browser_download_url"] as JsonPrimitive).content
+        val api = (asset["url"] as? JsonPrimitive)?.contentOrNull
+        return build to (url to api)
     }
 
+    /** True when Fire TV lets ShedTV install apps (needed once, before the first in-app update). */
+    val canInstall: Boolean
+        get() = android.os.Build.VERSION.SDK_INT < 26 || app.packageManager.canRequestPackageInstalls()
+
     fun install() {
-        val url = apkUrl ?: return
-        if (busy) return
+        if (apkUrl == null || busy) return
+        if (!canInstall) {
+            // The usual reason "nothing happens": open the switch for ShedTV directly.
+            status = "One-time step: turn ShedTV ON on the screen that opens, press Back, then press Install again."
+            val opened = runCatching {
+                app.startActivity(
+                    Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, android.net.Uri.parse("package:" + app.packageName))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            }.isSuccess
+            if (!opened) {
+                status = "One-time step: on the Fire TV go to Settings → My Fire TV → Developer Options → Install unknown apps, turn ShedTV ON, then press Install again."
+            }
+            return
+        }
         scope.launch {
             busy = true
             try {
-                val file = withContext(Dispatchers.IO) { download(url) }
-                val uri = FileProvider.getUriForFile(app, app.packageName + ".files", file)
-                val intent = Intent(Intent.ACTION_VIEW)
-                    .setDataAndType(uri, "application/vnd.android.package-archive")
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-                app.startActivity(intent)
-                status = "Follow the prompt to install. If nothing appears, allow ShedTV under Fire TV Settings → My Fire TV → Developer Options → Install unknown apps, then try again."
+                val file = withContext(Dispatchers.IO) { download() }
+                // Make sure we really have the newer build before handing it over.
+                @Suppress("DEPRECATION")
+                val info = app.packageManager.getPackageArchiveInfo(file.path, 0)
+                    ?: throw IOException("the download isn't a valid app file")
+                @Suppress("DEPRECATION")
+                val code = info.versionCode
+                if (info.packageName != app.packageName) throw IOException("the download is a different app (${info.packageName})")
+                if (code <= currentBuild) throw IOException("the download was build $code, not newer than this one. Try again in a minute")
+                status = "Installing build $code…"
+                withContext(Dispatchers.IO) { installWithSession(file) }
             } catch (e: Exception) {
-                status = "Update failed (${e.message})."
+                status = "Update failed: ${e.message}."
+                // Last resort: the older hand-off to the Fire TV installer.
+                val file = File(File(app.cacheDir, "update"), "shedtv.apk")
+                if (e !is IOException && file.exists()) runCatching { legacyInstall(file) }
             }
             busy = false
         }
     }
 
-    private suspend fun download(url: String): File {
+    private fun installWithSession(file: File) {
+        val installer = app.packageManager.packageInstaller
+        val params = android.content.pm.PackageInstaller.SessionParams(android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+        params.setAppPackageName(app.packageName)
+        val id = installer.createSession(params)
+        installer.openSession(id).use { session ->
+            session.openWrite("shedtv.apk", 0, file.length()).use { out ->
+                file.inputStream().use { it.copyTo(out) }
+                session.fsync(out)
+            }
+            val flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or
+                (if (android.os.Build.VERSION.SDK_INT >= 31) android.app.PendingIntent.FLAG_MUTABLE else 0)
+            val pending = android.app.PendingIntent.getBroadcast(app, id, Intent(app, InstallResultReceiver::class.java), flags)
+            session.commit(pending.intentSender)
+        }
+    }
+
+    private fun legacyInstall(file: File) {
+        val uri = FileProvider.getUriForFile(app, app.packageName + ".files", file)
+        app.startActivity(
+            Intent(Intent.ACTION_VIEW)
+                .setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }
+
+    companion object {
+        @Volatile private var current: Updater? = null
+
+        /** Install results arrive in a broadcast; show them in Settings. */
+        fun report(message: String) {
+            val u = current ?: return
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                u.status = message
+                u.busy = false
+            }
+        }
+    }
+
+    private suspend fun download(): File {
         val dir = File(app.cacheDir, "update").apply { mkdirs() }
         val file = File(dir, "shedtv.apk")
-        val request = Request.Builder().url(url).header("User-Agent", USER_AGENT).build()
+        file.delete()
+        val api = assetApiUrl
+        val request = if (api != null) {
+            Request.Builder().url(api).header("User-Agent", USER_AGENT).header("Accept", "application/octet-stream").build()
+        } else {
+            Request.Builder().url(apkUrl!! + "?t=" + System.currentTimeMillis()).header("User-Agent", USER_AGENT).build()
+        }
         XtreamClient.http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             val body = response.body ?: throw IOException("empty download")

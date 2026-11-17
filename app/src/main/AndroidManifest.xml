@@ -27,6 +27,8 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+        <receiver android:name=".InstallResultReceiver" android:exported="false" />
+
         <meta-data android:name="updateRepo" android:value="${updateRepo}" />
 
         <provider

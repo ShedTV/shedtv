@@ -168,6 +168,10 @@ fun SettingsScreen(vm: AppViewModel) {
                 Chip(if (vm.updater.busy) "Working…" else "Check for updates") { vm.updater.check(silent = false) }
                 if (vm.updater.available) Chip("Install build ${vm.updater.latestBuild}", selected = true) { vm.updater.install() }
             }
+            if (!vm.updater.canInstall) {
+                Text("Before the first in-app update, Fire TV needs to allow ShedTV to install apps. Install will open that switch for you.",
+                    color = Palette.TextMuted, fontSize = 12.sp)
+            }
             Text("Fonts: Barlow Condensed and Inter, used under the SIL Open Font License 1.1 (full text included in the app).",
                 color = Palette.TextMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
         }
