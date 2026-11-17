@@ -75,22 +75,19 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
         }.distinctBy { it.id }
     }
 
-    suspend fun liveStreams(): List<Channel> {
-        val arr = get(apiUrl("get_live_streams")) as? JsonArray ?: return emptyList()
-        return arr.mapIndexedNotNull { index, el ->
-            val o = el as? JsonObject ?: return@mapIndexedNotNull null
-            val id = o.str("stream_id") ?: return@mapIndexedNotNull null
+    suspend fun liveStreams(): List<Channel> =
+        streamList(apiUrl("get_live_streams"), LIVE_KEYS) { o, index ->
+            val id = o["stream_id"] ?: return@streamList null
             Channel(
                 streamId = id,
-                num = o.str("num")?.toIntOrNull() ?: (index + 1),
-                name = o.str("name")?.trim().orEmpty().ifEmpty { "Channel $id" },
-                logo = o.str("stream_icon")?.takeIf { it.startsWith("http") },
-                categoryId = o.str("category_id"),
-                epgId = o.str("epg_channel_id"),
-                hasArchive = o.str("tv_archive")?.toIntOrNull() == 1,
+                num = o["num"]?.toIntOrNull() ?: (index + 1),
+                name = o["name"]?.trim().orEmpty().ifEmpty { "Channel $id" },
+                logo = o["stream_icon"]?.takeIf { it.startsWith("http") },
+                categoryId = o["category_id"],
+                epgId = o["epg_channel_id"],
+                hasArchive = o["tv_archive"]?.toIntOrNull() == 1,
             )
         }.distinctBy { it.streamId }.sortedBy { it.num }
-    }
 
     suspend fun shortEpg(streamId: String, limit: Int = 4): List<EpgEntry> {
         val root = get(apiUrl("get_short_epg", "&stream_id=$streamId&limit=$limit")) as? JsonObject
@@ -109,41 +106,96 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
         }
     }
 
-    suspend fun vodStreams(): List<VodItem> {
-        val arr = get(apiUrl("get_vod_streams")) as? JsonArray ?: return emptyList()
-        return arr.mapNotNull { el ->
-            val o = el as? JsonObject ?: return@mapNotNull null
-            val id = o.str("stream_id") ?: return@mapNotNull null
+    suspend fun vodStreams(): List<VodItem> =
+        streamList(apiUrl("get_vod_streams"), VOD_KEYS) { o, _ ->
+            val id = o["stream_id"] ?: return@streamList null
             VodItem(
                 id = id,
-                name = o.str("name")?.trim().orEmpty().ifEmpty { "Untitled" },
-                poster = o.str("stream_icon")?.takeIf { it.startsWith("http") },
-                rating = o.str("rating")?.takeIf { it.isNotBlank() && it != "0" },
-                categoryId = o.str("category_id"),
-                ext = o.str("container_extension")?.ifBlank { null } ?: "mp4",
-                added = o.str("added")?.toLongOrNull() ?: 0,
+                name = o["name"]?.trim().orEmpty().ifEmpty { "Untitled" },
+                poster = o["stream_icon"]?.takeIf { it.startsWith("http") },
+                rating = o["rating"]?.takeIf { it.isNotBlank() && it != "0" },
+                categoryId = o["category_id"],
+                ext = o["container_extension"]?.ifBlank { null } ?: "mp4",
+                added = o["added"]?.toLongOrNull() ?: 0,
             )
         }.distinctBy { it.id }
-    }
 
-    suspend fun series(): List<SeriesItem> {
-        val arr = get(apiUrl("get_series")) as? JsonArray ?: return emptyList()
-        return arr.mapNotNull { el ->
-            val o = el as? JsonObject ?: return@mapNotNull null
-            val id = o.str("series_id") ?: return@mapNotNull null
+    suspend fun series(): List<SeriesItem> =
+        streamList(apiUrl("get_series"), SERIES_KEYS) { o, _ ->
+            val id = o["series_id"] ?: return@streamList null
             SeriesItem(
                 id = id,
-                name = o.str("name")?.trim().orEmpty().ifEmpty { "Untitled" },
-                cover = o.str("cover")?.takeIf { it.startsWith("http") },
-                plot = o.str("plot").orEmpty(),
-                genre = o.str("genre").orEmpty(),
-                year = (o.str("releaseDate") ?: o.str("release_date")).orEmpty().take(4),
-                rating = o.str("rating")?.takeIf { it.isNotBlank() && it != "0" },
-                categoryId = o.str("category_id"),
-                updated = o.str("last_modified")?.toLongOrNull() ?: 0,
+                name = o["name"]?.trim().orEmpty().ifEmpty { "Untitled" },
+                cover = o["cover"]?.takeIf { it.startsWith("http") },
+                plot = o["plot"].orEmpty().take(400),
+                genre = o["genre"].orEmpty(),
+                year = (o["releaseDate"] ?: o["release_date"]).orEmpty().take(4),
+                rating = o["rating"]?.takeIf { it.isNotBlank() && it != "0" },
+                categoryId = o["category_id"],
+                updated = o["last_modified"]?.toLongOrNull() ?: 0,
             )
         }.distinctBy { it.id }
-    }
+
+    /**
+     * Reads a big provider list (tens of thousands of films) as it downloads, keeping only
+     * the fields we use. Building the whole reply in memory first ran the Fire Stick out of memory.
+     */
+    private suspend fun <T> streamList(url: String, keys: Set<String>, make: (Map<String, String>, Int) -> T?): List<T> =
+        withContext(Dispatchers.IO) {
+            val request = Request.Builder().url(url).header("User-Agent", userAgent ?: UserAgents.current).build()
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw IOException("Provider returned HTTP ${response.code}")
+                val body = response.body ?: throw IOException("Provider returned an empty response")
+                val reader = android.util.JsonReader(java.io.InputStreamReader(body.byteStream(), Charsets.UTF_8))
+                reader.isLenient = true
+                val out = ArrayList<T>()
+                val fields = HashMap<String, String>(16)
+                var index = 0
+                fun readItem() {
+                    fields.clear()
+                    reader.beginObject()
+                    while (reader.hasNext()) {
+                        val name = reader.nextName()
+                        if (name !in keys) { reader.skipValue(); continue }
+                        when (reader.peek()) {
+                            android.util.JsonToken.STRING, android.util.JsonToken.NUMBER -> fields[name] = reader.nextString()
+                            android.util.JsonToken.BOOLEAN -> fields[name] = reader.nextBoolean().toString()
+                            else -> reader.skipValue()
+                        }
+                    }
+                    reader.endObject()
+                    make(fields, index++)?.let { out.add(it) }
+                }
+                try {
+                    when (reader.peek()) {
+                        android.util.JsonToken.BEGIN_ARRAY -> {
+                            reader.beginArray()
+                            while (reader.hasNext()) {
+                                if (reader.peek() == android.util.JsonToken.BEGIN_OBJECT) readItem() else reader.skipValue()
+                            }
+                            reader.endArray()
+                        }
+                        // A few providers send an object keyed by id instead of a list.
+                        android.util.JsonToken.BEGIN_OBJECT -> {
+                            reader.beginObject()
+                            while (reader.hasNext()) {
+                                reader.nextName()
+                                if (reader.peek() == android.util.JsonToken.BEGIN_OBJECT) readItem() else reader.skipValue()
+                            }
+                            reader.endObject()
+                        }
+                        else -> Unit
+                    }
+                } catch (e: IllegalStateException) {
+                    if (out.isEmpty()) throw IOException("Provider sent something unexpected.")
+                } catch (e: java.io.EOFException) {
+                    if (out.isEmpty()) throw IOException("The list was cut off. Try again.")
+                } finally {
+                    runCatching { reader.close() }
+                }
+                out
+            }
+        }
 
     suspend fun vodInfo(id: String): MovieInfo {
         val root = get(apiUrl("get_vod_info", "&vod_id=$id")) as? JsonObject ?: throw IOException("No details for this film")
@@ -219,6 +271,10 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
     }
 
     companion object {
+        private val LIVE_KEYS = setOf("stream_id", "num", "name", "stream_icon", "category_id", "epg_channel_id", "tv_archive")
+        private val VOD_KEYS = setOf("stream_id", "name", "stream_icon", "rating", "category_id", "container_extension", "added")
+        private val SERIES_KEYS = setOf("series_id", "name", "cover", "plot", "genre", "releaseDate", "release_date", "rating", "category_id", "last_modified")
+
         val http: OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(90, TimeUnit.SECONDS)

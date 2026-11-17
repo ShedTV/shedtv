@@ -68,7 +68,7 @@ fun MoviesScreen(vm: AppViewModel) {
         status = lib.moviesStatus,
         categories = lib.movieCategoryList(), selected = cat, onCategory = { lib.movieCategory = it },
         count = { id -> if (id == cat) items.size else null },
-        posters = items.map { PosterData(it.id, it.name, it.poster, it.rating?.let { r -> "★ $r" }.orEmpty(), history[it.id]?.progress) },
+        posters = remember(items, history) { items.map { PosterData(it.id, it.name, it.poster, it.rating?.let { r -> "★ $r" }.orEmpty(), history[it.id]?.progress) } },
         onOpen = { id ->
             items.firstOrNull { it.id == id }?.let { lib.showMovie(it); vm.navigate(Screen.MovieDetails) }
         },
@@ -86,7 +86,7 @@ fun SeriesScreen(vm: AppViewModel) {
         status = lib.seriesStatus,
         categories = lib.seriesCategoryList(), selected = cat, onCategory = { lib.seriesCategory = it },
         count = { id -> if (id == cat) items.size else null },
-        posters = items.map { PosterData(it.id, it.name, it.cover, listOf(it.year, it.genre.substringBefore(",")).filter { s -> s.isNotBlank() }.joinToString(" · "), null) },
+        posters = remember(items) { items.map { PosterData(it.id, it.name, it.cover, listOf(it.year, it.genre.substringBefore(",")).filter { s -> s.isNotBlank() }.joinToString(" · "), null) } },
         onOpen = { id ->
             items.firstOrNull { it.id == id }?.let { lib.showSeries(it); vm.navigate(Screen.SeriesDetails) }
         },
