@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
@@ -213,6 +214,21 @@ fun Modifier.fadeRightEdge(width: Dp = 56.dp): Modifier = this
             blendMode = BlendMode.DstIn,
         )
     }
+
+/** Category names like "UK | Entertainment": the short prefix drawn small so the real name gets the space. */
+fun categoryLabel(name: String): androidx.compose.ui.text.AnnotatedString {
+    val i = name.indexOf('|')
+    if (i !in 1..6) return androidx.compose.ui.text.AnnotatedString(name.trim())
+    val prefix = name.substring(0, i).trim()
+    val rest = name.substring(i + 1).trim().ifEmpty { return androidx.compose.ui.text.AnnotatedString(name.trim()) }
+    return androidx.compose.ui.text.buildAnnotatedString {
+        pushStyle(androidx.compose.ui.text.SpanStyle(fontSize = 0.72.em, fontWeight = FontWeight.Normal))
+        append(prefix)
+        append("  ")
+        pop()
+        append(rest)
+    }
+}
 
 private val timeFormat = SimpleDateFormat("HH:mm", Locale.UK)
 fun formatTime(millis: Long): String = timeFormat.format(Date(millis))

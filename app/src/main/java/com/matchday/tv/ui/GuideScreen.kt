@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
@@ -61,8 +62,8 @@ import kotlinx.coroutines.launch
 private const val MIN = 60_000L
 private const val HALF_HOUR = 30 * MIN
 private const val WINDOW = 120 * MIN
-private val ROW_HEIGHT = 52.dp
-private val CHANNEL_COL = 170.dp
+private val ROW_HEIGHT = 42.dp
+private val CHANNEL_COL = 200.dp
 
 private fun floorHalfHour(t: Long) = t - (t % HALF_HOUR)
 
@@ -96,6 +97,15 @@ fun GuideScreen(vm: AppViewModel) {
         mutableIntStateOf(channels.indexOfFirst { it.streamId == vm.lastFocusedChannelId }.coerceAtLeast(0))
     }
     var gridFocused by remember { mutableIntStateOf(0) }
+    // Categories slide away while you're in the grid; Left at the start of "now" brings them back.
+    var catsOpen by remember { mutableStateOf(false) }
+    val catFocus = remember { FocusRequester() }
+    LaunchedEffect(catsOpen) {
+        if (catsOpen) {
+            kotlinx.coroutines.delay(60)
+            runCatching { catFocus.requestFocus() }
+        }
+    }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val gridFocus = remember { FocusRequester() }
@@ -130,7 +140,12 @@ fun GuideScreen(vm: AppViewModel) {
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, Screen.Guide)
         // Categories: moving onto one shows it in the grid; OK or Right goes into the grid.
-        Column(Modifier.width(150.dp).fillMaxHeight().padding(start = 8.dp, top = 22.dp)) {
+        androidx.compose.animation.AnimatedVisibility(
+            visible = catsOpen,
+            enter = androidx.compose.animation.expandHorizontally() + androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.shrinkHorizontally() + androidx.compose.animation.fadeOut(),
+        ) {
+        Column(Modifier.width(170.dp).fillMaxHeight().padding(start = 8.dp, top = 22.dp)) {
             Text("GUIDE", color = Palette.Text, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, fontSize = 22.sp, letterSpacing = 1.sp,
                 modifier = Modifier.padding(start = 8.dp, bottom = 10.dp))
             val cats = vm.categoryList.filter { it.id == vm.selectedCategoryId || vm.channelCount(it.id) > 0 }
@@ -144,10 +159,17 @@ fun GuideScreen(vm: AppViewModel) {
                     FocusTile(
                         onClick = { vm.selectCategory(c.id); runCatching { gridFocus.requestFocus() } },
                         selected = isSel, corner = 8.dp, focusedScale = 1.03f,
-                        modifier = Modifier.fillMaxWidth().onFocusChanged { if (it.isFocused) vm.selectCategory(c.id) },
+                        modifier = Modifier.fillMaxWidth()
+                            .then(if (isSel) Modifier.focusRequester(catFocus) else Modifier)
+                            .onFocusChanged { if (it.isFocused) vm.selectCategory(c.id) }
+                            .onPreviewKeyEvent { e ->
+                                if (e.type == KeyEventType.KeyDown && e.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_RIGHT) {
+                                    runCatching { gridFocus.requestFocus() }; true
+                                } else false
+                            },
                     ) {
                         Text(
-                            c.name, fontSize = 13.sp, fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
+                            categoryLabel(c.name), fontSize = 13.sp, fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                         )
@@ -155,9 +177,10 @@ fun GuideScreen(vm: AppViewModel) {
                 }
             }
         }
+        }
         Column(
-            Modifier.fillMaxSize().padding(start = 10.dp, end = 24.dp, top = 22.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            Modifier.fillMaxSize().padding(start = 16.dp, end = 24.dp, top = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             GuideHeader(vm, selectedChannel, selectedBlock, now)
 
@@ -193,7 +216,7 @@ fun GuideScreen(vm: AppViewModel) {
                                     val prev = blocks.lastOrNull { it.end <= cur.start }
                                     when {
                                         // At the left edge of the present: step out to the category list.
-                                        cur.start <= windowStart && windowStart <= floorHalfHour(now) -> false
+                                        cur.start <= windowStart && windowStart <= floorHalfHour(now) -> { catsOpen = true; true }
                                         cur.start < windowStart && windowStart > earliest -> {
                                             windowStart -= HALF_HOUR
                                             anchor = maxOf(cur.start, windowStart)
@@ -232,11 +255,14 @@ fun GuideScreen(vm: AppViewModel) {
                             }
                         }
                         .focusRequester(gridFocus)
-                        .onFocusChanged { gridFocused = if (it.isFocused) 1 else 0 }
+                        .onFocusChanged {
+                            gridFocused = if (it.isFocused) 1 else 0
+                            if (it.isFocused) catsOpen = false
+                        }
                         .focusable(),
                 ) {
                     // Time header
-                    Box(Modifier.fillMaxWidth().height(30.dp)) {
+                    Box(Modifier.fillMaxWidth().height(24.dp)) {
                         Text(
                             dayLabel(windowStart, now), color = Palette.TextMuted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.align(Alignment.CenterStart),
@@ -254,7 +280,7 @@ fun GuideScreen(vm: AppViewModel) {
                         if (channels.isEmpty()) {
                             Text("No channels in this category. Press ◀ to pick another category.", color = Palette.TextMuted, fontSize = 15.sp)
                         }
-                        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.fillMaxSize()) {
                             itemsIndexed(channels, key = { _, c -> c.streamId }) { index, ch ->
                                 val shortEpg = vm.epg[ch.streamId]
                                 val visible = remember(ch.streamId, vm.guide, shortEpg, windowStart, earliest) {
@@ -291,12 +317,12 @@ fun GuideScreen(vm: AppViewModel) {
 
 @Composable
 private fun GuideHeader(vm: AppViewModel, channel: Channel?, block: Block?, now: Long) {
-    Row(Modifier.fillMaxWidth().height(118.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+    Row(Modifier.fillMaxWidth().height(84.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (channel != null) {
                 Text(
                     "${channel.num}  ·  ${channel.name}" + (block?.let { "  ·  ${formatTime(it.start)} – ${formatTime(it.end)}" } ?: ""),
-                    color = Palette.TextMuted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = Palette.TextMuted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (block?.entry?.isOn(now) == true) {
@@ -306,22 +332,22 @@ private fun GuideHeader(vm: AppViewModel, channel: Channel?, block: Block?, now:
                         )
                     }
                     Text(
-                        block?.title ?: channel.name, color = Palette.Text, fontSize = 32.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily,
+                        block?.title ?: channel.name, color = Palette.Text, fontSize = 26.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily,
                         maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
                 val desc = block?.entry?.description.orEmpty()
                 if (desc.isNotBlank()) {
-                    Text(desc, color = Palette.TextSoft, fontSize = 14.sp, lineHeight = 19.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(desc, color = Palette.TextSoft, fontSize = 13.sp, lineHeight = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(formatTime(now), color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.SemiBold, fontFamily = DisplayFamily)
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(formatTime(now), color = Palette.Text, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, fontFamily = DisplayFamily)
             val cat = vm.categoryList.firstOrNull { it.id == vm.selectedCategoryId }?.name.orEmpty()
-            Text(cat, color = Palette.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(categoryLabel(cat), color = Palette.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             vm.guideStatus?.let { Text(it, color = Palette.TextMuted, fontSize = 12.sp, maxLines = 2) }
-            Text("◀ categories  ·  ◀◀ ▶▶ jump 2 hrs", color = Palette.TextMuted, fontSize = 11.sp)
+            Text("◀ at now: categories  ·  ◀◀ ▶▶ 2 hrs", color = Palette.TextMuted, fontSize = 11.sp)
         }
     }
 }
@@ -349,11 +375,11 @@ private fun GuideRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(channel.num.toString(), color = Palette.TextMuted, fontSize = 12.sp, modifier = Modifier.width(28.dp))
-            ChannelLogo(channel, 32)
+            Text(channel.num.toString(), color = Palette.TextMuted, fontSize = 11.sp, modifier = Modifier.width(26.dp))
+            ChannelLogo(channel, 28)
             Text(
-                channel.name, color = if (rowSelected) Palette.Accent else Palette.Text, fontSize = 13.sp, fontWeight = FontWeight.Medium,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                channel.name, color = if (rowSelected) Palette.Accent else Palette.Text, fontSize = 12.sp, lineHeight = 13.sp,
+                fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
         }
         Box(Modifier.weight(1f).fillMaxHeight()) {

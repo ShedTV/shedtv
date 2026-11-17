@@ -106,12 +106,12 @@ fun LiveTvScreen(vm: AppViewModel) {
                             .onFocusChanged { if (it.isFocused) vm.selectCategory(cat.id) },
                     ) {
                         Row(
-                            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                cat.name,
-                                fontSize = 15.sp,
+                                categoryLabel(cat.name),
+                                fontSize = 14.sp,
                                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -119,7 +119,8 @@ fun LiveTvScreen(vm: AppViewModel) {
                             )
                             Text(
                                 vm.channelCount(cat.id).toString(),
-                                fontSize = 12.sp,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(start = 6.dp),
                                 color = LocalContentColor.current.copy(alpha = 0.6f),
                             )
                         }
@@ -132,11 +133,11 @@ fun LiveTvScreen(vm: AppViewModel) {
         }
 
         // Channels
-        Column(Modifier.width(320.dp).fillMaxHeight()) {
+        Column(Modifier.width(360.dp).fillMaxHeight()) {
             Text(
-                vm.categoryList.firstOrNull { it.id == vm.selectedCategoryId }?.name.orEmpty(),
+                categoryLabel(vm.categoryList.firstOrNull { it.id == vm.selectedCategoryId }?.name.orEmpty()),
                 color = Palette.TextMuted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(start = 6.dp, top = 6.dp, bottom = 16.dp),
+                modifier = Modifier.padding(start = 6.dp, top = 6.dp, bottom = 8.dp),
             )
             if (channels.isEmpty()) {
                 Text(
@@ -149,11 +150,12 @@ fun LiveTvScreen(vm: AppViewModel) {
             LazyColumn(
                 state = channelListState,
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                contentPadding = PaddingValues(vertical = 6.dp, horizontal = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                contentPadding = PaddingValues(vertical = 6.dp, horizontal = 8.dp),
             ) {
                 itemsIndexed(channels, key = { _, c -> c.streamId }) { _, ch ->
                     ChannelRow(
+                        vm = vm,
                         channel = ch,
                         favourite = vm.isFavourite(ch),
                         modifier = Modifier
@@ -195,6 +197,7 @@ private fun SmallButton(label: String, onClick: () -> Unit) {
 
 @Composable
 private fun ChannelRow(
+    vm: AppViewModel,
     channel: Channel,
     favourite: Boolean,
     modifier: Modifier,
@@ -202,26 +205,41 @@ private fun ChannelRow(
     onLongClick: () -> Unit,
 ) {
     FocusTile(onClick = onClick, onLongClick = onLongClick, modifier = modifier.fillMaxWidth(), corner = 10.dp) {
+        // Fetch now-playing for rows the full guide doesn't cover, once scrolling settles.
+        LaunchedEffect(channel.streamId) {
+            kotlinx.coroutines.delay(500)
+            vm.loadEpg(channel)
+        }
+        val now = rememberNow()
+        val onNow = vm.programmesFor(channel).nowAndNext(now).first
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
                 channel.num.toString(),
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 color = LocalContentColor.current.copy(alpha = 0.6f),
-                modifier = Modifier.width(34.dp),
+                modifier = Modifier.width(30.dp),
             )
-            ChannelLogo(channel, 36)
-            Text(
-                channel.name,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            ChannelLogo(channel, 32)
+            Column(Modifier.weight(1f)) {
+                Text(
+                    channel.name,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    onNow?.title.orEmpty(),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = LocalContentColor.current.copy(alpha = 0.65f),
+                )
+            }
             if (favourite) Text("★", fontSize = 15.sp, color = Palette.Accent)
         }
     }
