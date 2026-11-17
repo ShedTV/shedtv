@@ -177,6 +177,7 @@ fun PlayerScreen(vm: AppViewModel) {
                 if (player.videoSize.height > 0) videoInfo = "${player.videoSize.height}p · " + (if (f.frameRate > 1f) "${f.frameRate.toInt()}fps" else "50Hz")
             }
         } else {
+            vm.recordingConflict(activeSource)?.let { vm.flash = it }
             vm.applySubtitlePrefs(player)
             if (retries == 0 && sourceIndex == 0) status = "Connecting…"
             rewindActive = live.start(url, activeSource.uid, rewind = vm.liveRewind, muted = false, userAgent = vm.agentFor(activeSource.subId))
@@ -366,7 +367,7 @@ fun PlayerScreen(vm: AppViewModel) {
             exit = androidx.compose.animation.slideOutHorizontally { it } + fadeOut(),
             modifier = Modifier.align(Alignment.CenterEnd),
         ) {
-            TrackMenu(vm, player, onLastChannel = { vm.lastChannel() }) {
+            TrackMenu(vm, player, onLastChannel = { vm.lastChannel() }, recordChannel = channel) {
                 menuOpen = false
                 runCatching { focus.requestFocus() }
             }

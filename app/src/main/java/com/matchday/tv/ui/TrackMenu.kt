@@ -74,7 +74,7 @@ private fun trackLabel(f: Format, index: Int): String {
 
 /** Options while watching: subtitles, audio and (for live TV) last channel. */
 @Composable
-fun TrackMenu(vm: AppViewModel, player: Player, onLastChannel: (() -> Unit)?, onClose: () -> Unit) {
+fun TrackMenu(vm: AppViewModel, player: Player, onLastChannel: (() -> Unit)?, recordChannel: com.matchday.tv.data.Channel? = null, onClose: () -> Unit) {
     var tracks by remember { mutableStateOf(player.currentTracks) }
     var nonce by remember { mutableIntStateOf(0) }
     DisposableEffect(player) {
@@ -106,6 +106,23 @@ fun TrackMenu(vm: AppViewModel, player: Player, onLastChannel: (() -> Unit)?, on
 
         if (onLastChannel != null) {
             MenuItem("Last channel", false, firstMod()) { onLastChannel(); onClose() }
+        }
+        if (recordChannel != null && vm.recordingEnabled) {
+            val active = vm.recordingFor(recordChannel)
+            if (active != null) {
+                MenuItem("■  Stop recording", false, Modifier) { com.matchday.tv.record.RecorderManager.stop(active.id); onClose() }
+            } else {
+                val now = System.currentTimeMillis()
+                val prog = vm.programmesFor(recordChannel).firstOrNull { it.isOn(now) }
+                if (prog != null) {
+                    MenuItem("●  Record this programme (to ${formatTime(prog.end + 15 * 60_000)})", false, Modifier) {
+                        vm.startRecording(recordChannel, prog.title, prog.end + 15 * 60_000); onClose()
+                    }
+                }
+                MenuItem("●  Record for 1 hour", false, Modifier) {
+                    vm.startRecording(recordChannel, (prog?.title ?: vm.channelLabel(recordChannel)), now + 60 * 60_000); onClose()
+                }
+            }
         }
 
         Section("SUBTITLES")

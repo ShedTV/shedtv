@@ -88,6 +88,14 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("mergeQualities", false)
         set(value) = sp.edit().putBoolean("mergeQualities", value).apply()
 
+    var recording: Boolean
+        get() = sp.getBoolean("recording", false)
+        set(value) = sp.edit().putBoolean("recording", value).apply()
+
+    var recordingDir: String?
+        get() = sp.getString("recordingDir", null)
+        set(value) = sp.edit().putString("recordingDir", value).apply()
+
     var subtitles: Boolean
         get() = sp.getBoolean("subtitles", false)
         set(value) = sp.edit().putBoolean("subtitles", value).apply()

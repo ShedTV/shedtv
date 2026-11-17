@@ -98,6 +98,17 @@ private fun App(vm: AppViewModel = viewModel()) {
         }
     ) {
         Screens(vm)
+        val flash = vm.flash
+        LaunchedEffect(flash) { if (flash != null) { delay(5_000); vm.flash = null } }
+        if (flash != null) {
+            Text(
+                flash, color = Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp)
+                    .background(Color(0xF207090C), RoundedCornerShape(12.dp))
+                    .border(1.dp, Palette.Accent, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+            )
+        }
         if (showAlert && alert != null) {
             Row(
                 Modifier.align(Alignment.TopCenter).padding(top = 20.dp)
@@ -136,7 +147,7 @@ private fun Screens(vm: AppViewModel) {
     ) { screen -> ScreenFor(vm, screen) }
 }
 
-private val instantScreens = setOf(Screen.Player, Screen.VodPlayer, Screen.Loading)
+private val instantScreens = setOf(Screen.Player, Screen.VodPlayer, Screen.Loading, Screen.RecordingPlayer)
 private val pageScreens = setOf(Screen.MovieDetails, Screen.SeriesDetails, Screen.Teams, Screen.Categories, Screen.EditSubscription)
 
 /** Quick fades between sections, a short slide for pages opened from them; video always cuts straight in. */
@@ -167,6 +178,8 @@ private fun ScreenFor(vm: AppViewModel, screen: Screen) {
         Screen.Settings -> SettingsScreen(vm)
         Screen.Search -> com.matchday.tv.ui.SearchScreen(vm)
         Screen.Categories -> com.matchday.tv.ui.CategoriesScreen(vm)
+        Screen.Recordings -> com.matchday.tv.ui.RecordingsScreen(vm)
+        Screen.RecordingPlayer -> com.matchday.tv.ui.RecordingPlayerScreen(vm)
         Screen.Loading -> LoadingScreen(vm.loadingMessage)
         Screen.Sport -> SportHubScreen(vm)
         Screen.Teams -> TeamPickerScreen(vm)

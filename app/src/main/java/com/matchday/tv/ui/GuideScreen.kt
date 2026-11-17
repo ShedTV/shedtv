@@ -247,7 +247,17 @@ fun GuideScreen(vm: AppViewModel) {
                                     anchor = windowStart
                                     true
                                 }
-                                AndroidKeyEvent.KEYCODE_MENU -> { vm.cycleCategory(); row = 0; true }
+                                AndroidKeyEvent.KEYCODE_MENU -> {
+                                    val e2 = cur.entry
+                                    when {
+                                        !vm.recordingEnabled -> { vm.cycleCategory(); row = 0 }
+                                        vm.recordingFor(ch) != null -> vm.flash = "Already recording ${vm.channelLabel(ch)}. Stop it from Recordings."
+                                        e2 != null && e2.isOn(System.currentTimeMillis()) -> vm.startRecording(ch, e2.title, e2.end + 15 * 60_000)
+                                        e2 != null && e2.start > System.currentTimeMillis() -> vm.flash = "Recording future programmes is coming in the next update."
+                                        else -> vm.flash = "Pick a programme that's on now to record it."
+                                    }
+                                    true
+                                }
                                 AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER -> {
                                     vm.lastFocusedChannelId = ch.streamId
                                     vm.play(ch, from = Screen.Guide)

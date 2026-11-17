@@ -162,6 +162,32 @@ fun SettingsScreen(vm: AppViewModel) {
                 Chip("Refresh guide now") { vm.loadGuide(force = true) }
             }
 
+            // ---- Recording ----
+            Spacer(Modifier.height(2.dp))
+            Heading("Recording", "Off by default. Records to this device or a USB drive, and keeps going through glitches by switching source.")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Chip("On", selected = vm.recordingEnabled) { vm.turnRecording(true) }
+                Chip("Off", selected = !vm.recordingEnabled) { vm.turnRecording(false) }
+            }
+            if (vm.recordingEnabled) {
+                val vols = com.matchday.tv.record.RecorderManager.volumes()
+                val chosen = vm.recordingVolume()
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    vols.forEach { v ->
+                        Chip("${v.label} · %.1f GB free".format(v.freeBytes / 1073741824.0), selected = chosen?.dir == v.dir) { vm.chooseRecordingVolume(v) }
+                    }
+                }
+                val free = chosen?.freeBytes ?: 0
+                if (free < 16L * 1024 * 1024 * 1024) {
+                    Text(
+                        "⚠ Only %.1f GB free here: about %d hour(s) of HD sport at roughly 3 GB per hour. Fire Sticks have very little space; a Shield or box with a USB drive is much better for recording."
+                            .format(free / 1073741824.0, free / com.matchday.tv.record.RecorderManager.BYTES_PER_HOUR),
+                        color = Palette.Live, fontSize = 12.sp,
+                    )
+                }
+                Text("Recordings on a USB drive are kept in ShedTV's own folder there, and are removed if ShedTV is uninstalled.", color = Palette.TextMuted, fontSize = 11.sp)
+            }
+
             // ---- Preview and display ----
             Spacer(Modifier.height(2.dp))
             Heading("Preview window", "Plays the highlighted channel, muted, in Live TV and the guide. Uses your one connection, and carries on into full screen when you press OK.")

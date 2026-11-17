@@ -39,6 +39,8 @@ sealed interface Screen {
     data object Settings : Screen
     data object Search : Screen
     data object Categories : Screen
+    data object Recordings : Screen
+    data object RecordingPlayer : Screen
     data object EditSubscription : Screen
 }
 
@@ -123,6 +125,101 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val backupClients = HashMap<String, XtreamClient>()
     private var backupJob: Job? = null
 
+    // ---------- Recording ----------
+    init { com.matchday.tv.record.RecorderManager.init(app) }
+
+    var recordingEnabled by mutableStateOf(prefs.recording)
+        private set
+    var recordingDir by mutableStateOf(prefs.recordingDir)
+        private set
+    var playingRecordingId by mutableStateOf<String?>(null)
+        private set
+    var playingRecordingTail = false
+        private set
+
+    /** Short message shown at the bottom of any screen for a few seconds. */
+    var flash by mutableStateOf<String?>(null)
+
+    fun turnRecording(on: Boolean) {
+        recordingEnabled = on
+        prefs.recording = on
+    }
+
+    fun chooseRecordingVolume(v: com.matchday.tv.record.RecorderManager.Volume) {
+        recordingDir = v.dir.path
+        prefs.recordingDir = v.dir.path
+    }
+
+    fun recordingVolume(): com.matchday.tv.record.RecorderManager.Volume? {
+        val vols = com.matchday.tv.record.RecorderManager.volumes()
+        return vols.firstOrNull { it.dir.path == recordingDir } ?: vols.firstOrNull()
+    }
+
+    fun recordingStorageLine(): String {
+        val v = recordingVolume() ?: return "No storage available"
+        val hours = v.freeBytes / com.matchday.tv.record.RecorderManager.BYTES_PER_HOUR
+        return "${v.label}: %.1f GB free (about $hours h of HD)".format(v.freeBytes / 1073741824.0)
+    }
+
+    /** Max connections for a subscription (from its login); 1 when unknown, to be safe. */
+    private val connectionLimits = HashMap<String, Int>()
+    private fun limitFor(subId: String?): Int = connectionLimits[subId ?: activeSubscription?.id ?: ""] ?: 1
+
+    private fun subOfUid(uid: String): String? = uid.substringBefore(':').ifEmpty { null }
+
+    fun recordingFor(channel: Channel): com.matchday.tv.record.RecordingInfo? =
+        com.matchday.tv.record.RecorderManager.recordings.firstOrNull { it.active && it.channel == channelLabel(channel) }
+
+    /**
+     * Start recording [channel] until [endAt]. Thinks about connections first: on a one-connection
+     * subscription, recording what you're watching moves you onto the recording; recording a
+     * different channel uses another subscription first if there is one.
+     */
+    fun startRecording(channel: Channel, title: String, endAt: Long) {
+        val volume = recordingVolume() ?: run { flash = "No storage available for recordings."; return }
+        if (volume.freeBytes < 500L * 1024 * 1024) { flash = "Not enough free space to record (${volume.label})."; return }
+        var sources = sourcesFor(channel)
+        val watching = live.currentStreamId
+        var watchFromRecording = false
+        if (watching != null && subOfUid(watching) == channel.subId && limitFor(channel.subId) <= 1) {
+            if (sources.any { it.uid == watching }) {
+                watchFromRecording = true
+            } else {
+                val elsewhere = sources.filter { it.subId != channel.subId }
+                if (elsewhere.isNotEmpty()) sources = elsewhere + sources.filter { it.subId == channel.subId }
+                else flash = "${subscriptionName(channel.subId)} allows 1 connection: changing channel may interrupt this recording."
+            }
+        }
+        val recSources = sources.mapNotNull { ch ->
+            val url = clientFor(ch.subId)?.streamUrl(ch, "ts") ?: return@mapNotNull null
+            val q = com.matchday.tv.data.ChannelNames.quality(ch.name)
+            com.matchday.tv.record.RecSource(url, agentFor(ch.subId), subscriptionName(ch.subId) + if (q.isNotEmpty()) " $q" else "", ch.subId)
+        }
+        if (watchFromRecording) live.stop()
+        val id = com.matchday.tv.record.RecorderManager.start(title, channelLabel(channel), recSources, endAt, volume)
+        if (watchFromRecording) {
+            playRecording(id, tail = true)
+            flash = "Recording. You're now watching from the recording, so it uses just one connection."
+        } else if (flash == null) {
+            flash = "Recording ${title} until ${java.text.SimpleDateFormat("HH:mm", java.util.Locale.UK).format(java.util.Date(endAt))}"
+        }
+    }
+
+    fun playRecording(id: String, tail: Boolean) {
+        playingRecordingId = id
+        playingRecordingTail = tail
+        live.stop()
+        screen = Screen.RecordingPlayer
+    }
+
+    /** Warning when live TV would share a one-connection subscription with a recording. */
+    fun recordingConflict(channel: Channel): String? {
+        if (com.matchday.tv.record.RecorderManager.activeCount() == 0 || limitFor(channel.subId) > 1) return null
+        val rec = com.matchday.tv.record.RecorderManager.recordings.firstOrNull { it.active } ?: return null
+        if (rec.channel == channelLabel(channel)) return null
+        return "Recording ${rec.title}: ${subscriptionName(channel.subId)} allows 1 connection, so the recording may switch to a backup or pause."
+    }
+
     // ---------- Subtitles ----------
     private var subtitlesOn = prefs.subtitles
     private var subtitleLang = prefs.subtitleLanguage
@@ -177,6 +274,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 backupClients[sub.id] = c
                 backups[sub.id] = (backups[sub.id] ?: BackupSub()).copy(status = "Loading…")
                 try {
+                    runCatching { c.login() }.getOrNull()?.maxConnections?.toIntOrNull()?.let { connectionLimits[sub.id] = it }
                     val chans = c.liveStreams().map { it.copy(subId = sub.id) }
                     backups[sub.id] = BackupSub(channels = chans, status = "Backup ready · ${chans.size} channels")
                     val films = runCatching { c.vodStreams().map { it.copy(subId = sub.id) } }.getOrDefault(emptyList())
@@ -545,7 +643,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 var attempt = 1
                 while (true) {
                     try {
-                        c.login()
+                        val account = c.login()
+                        account.maxConnections?.toIntOrNull()?.let { connectionLimits[sub.id] = it }
                         break
                     } catch (e: Exception) {
                         // Right after the Fire Stick wakes, the network may not be up yet.
