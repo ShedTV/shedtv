@@ -88,6 +88,19 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("mergeQualities", false)
         set(value) = sp.edit().putBoolean("mergeQualities", value).apply()
 
+    var subtitles: Boolean
+        get() = sp.getBoolean("subtitles", false)
+        set(value) = sp.edit().putBoolean("subtitles", value).apply()
+
+    var subtitleLanguage: String?
+        get() = sp.getString("subtitleLanguage", null)
+        set(value) = sp.edit().putString("subtitleLanguage", value).apply()
+
+    fun categoryOrder(subId: String): List<String> =
+        sp.getString("catOrder_$subId", "").orEmpty().split('\u0001').filter { it.isNotEmpty() }
+    fun setCategoryOrder(subId: String, ids: List<String>) =
+        sp.edit().putString("catOrder_$subId", ids.joinToString("\u0001")).apply()
+
     var useBackups: Boolean
         get() = sp.getBoolean("useBackups", true)
         set(value) = sp.edit().putBoolean("useBackups", value).apply()

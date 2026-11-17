@@ -218,6 +218,7 @@ fun LivePreview(vm: com.matchday.tv.AppViewModel, modifier: Modifier = Modifier)
                     useController = false
                     resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setShutterBackgroundColor(android.graphics.Color.BLACK)
+                    styleSubtitles(show = false)
                     player = vm.live.player
                 }
             },

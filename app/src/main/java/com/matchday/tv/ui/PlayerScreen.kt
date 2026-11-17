@@ -104,6 +104,7 @@ fun PlayerScreen(vm: AppViewModel) {
     var behindMs by remember { mutableStateOf(0L) }
     var paused by remember { mutableStateOf(false) }
     var listOpen by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
     val player = live.player
 
     fun poke() {
@@ -168,6 +169,7 @@ fun PlayerScreen(vm: AppViewModel) {
         if (adopting) {
             // The preview was already playing this: carry on, just with sound. No second connection.
             live.setMuted(false)
+            vm.applySubtitlePrefs(player)
             rewindActive = live.isRecording
             if (player.playbackState == Player.STATE_READY) status = null
             player.videoFormat?.let { f ->
@@ -175,6 +177,7 @@ fun PlayerScreen(vm: AppViewModel) {
                 if (player.videoSize.height > 0) videoInfo = "${player.videoSize.height}p · " + (if (f.frameRate > 1f) "${f.frameRate.toInt()}fps" else "50Hz")
             }
         } else {
+            vm.applySubtitlePrefs(player)
             if (retries == 0 && sourceIndex == 0) status = "Connecting…"
             rewindActive = live.start(url, activeSource.uid, rewind = vm.liveRewind, muted = false, userAgent = vm.agentFor(activeSource.subId))
         }
@@ -255,6 +258,7 @@ fun PlayerScreen(vm: AppViewModel) {
 
     BackHandler {
         when {
+            menuOpen -> { menuOpen = false; runCatching { focus.requestFocus() } }
             listOpen -> { listOpen = false; runCatching { focus.requestFocus() } }
             showOverlay -> showOverlay = false
             else -> vm.closePlayer()
@@ -268,6 +272,7 @@ fun PlayerScreen(vm: AppViewModel) {
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 // While the channel list is open, it gets the remote (Right closes it).
+                if (menuOpen) return@onPreviewKeyEvent false
                 if (listOpen) {
                     if (event.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_RIGHT) {
                         listOpen = false
@@ -289,7 +294,7 @@ fun PlayerScreen(vm: AppViewModel) {
                         poke()
                         true
                     }
-                    AndroidKeyEvent.KEYCODE_MENU -> { vm.lastChannel(); true }
+                    AndroidKeyEvent.KEYCODE_MENU -> { showOverlay = false; menuOpen = true; true }
                     AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER -> {
                         showOverlay = false
                         listOpen = true
@@ -326,6 +331,7 @@ fun PlayerScreen(vm: AppViewModel) {
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setShutterBackgroundColor(android.graphics.Color.BLACK)
                     keepScreenOn = true
+                    styleSubtitles()
                     this.player = player
                 }
             },
@@ -354,7 +360,19 @@ fun PlayerScreen(vm: AppViewModel) {
             }
         }
 
-        AnimatedVisibility(visible = showOverlay && !listOpen, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
+        AnimatedVisibility(
+            visible = menuOpen,
+            enter = androidx.compose.animation.slideInHorizontally { it } + fadeIn(),
+            exit = androidx.compose.animation.slideOutHorizontally { it } + fadeOut(),
+            modifier = Modifier.align(Alignment.CenterEnd),
+        ) {
+            TrackMenu(vm, player, onLastChannel = { vm.lastChannel() }) {
+                menuOpen = false
+                runCatching { focus.requestFocus() }
+            }
+        }
+
+        AnimatedVisibility(visible = showOverlay && !listOpen && !menuOpen, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
             Overlay(
                 vm = vm, videoInfo = videoInfo,
                 sourceLabel = if (sources.size > 1 || activeSource.subId != null) {
@@ -494,7 +512,7 @@ private fun Overlay(vm: AppViewModel, videoInfo: String, sourceLabel: String, re
             }
             Spacer(Modifier.height(2.dp))
             Text(
-                "OK channel list  ·  ▲▼ channel  ·  " + (if (rewindLabel.isNotEmpty()) "◀ ▶ 15s  ·  ◀◀ ▶▶ 1 min  ·  ⏯ pause  ·  ☰ last channel" else "◀◀ last channel") +
+                "OK channel list  ·  ▲▼ channel  ·  " + (if (rewindLabel.isNotEmpty()) "◀ ▶ 15s  ·  ◀◀ ▶▶ 1 min  ·  ⏯ pause  ·  ☰ options" else "◀◀ last channel  ·  ☰ options") +
                     (if (sourceLabel.isNotEmpty()) "  ·  ▶▶ at live: switch source" else "") + "  ·  Back hide",
                 color = Palette.TextMuted, fontSize = 12.sp,
             )

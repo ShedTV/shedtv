@@ -2,6 +2,11 @@
 
 package com.matchday.tv.ui
 
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.nativeKeyCode
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -51,9 +56,11 @@ import kotlinx.coroutines.delay
 fun CategoriesScreen(vm: AppViewModel) {
     var filter by rememberSaveable { mutableStateOf("") }
     var confirmAll by remember { mutableStateOf(false) }
+    // Category being moved (hold OK to pick up, arrows to move, OK to drop).
+    var moving by remember { mutableStateOf<String?>(null) }
     val field = remember { FocusRequester() }
     LaunchedEffect(Unit) { delay(100); runCatching { field.requestFocus() } }
-    BackHandler { vm.navigate(Screen.Settings) }
+    BackHandler { if (moving != null) moving = null else vm.navigate(Screen.Settings) }
 
     val words = filter.lowercase().split(' ').filter { it.isNotBlank() }
     val all = vm.allCategories
@@ -64,7 +71,7 @@ fun CategoriesScreen(vm: AppViewModel) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column {
                 Text("MANAGE CATEGORIES", color = Palette.Text, fontSize = 26.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
-                Text("${all.size - hidden.count { id -> all.any { it.id == id } }} of ${all.size} shown  ·  OK to show or hide  ·  favourites always show",
+                Text("${all.size - hidden.count { id -> all.any { it.id == id } }} of ${all.size} shown  ·  OK show/hide  ·  hold OK to move  ·  favourites always show",
                     color = Palette.TextMuted, fontSize = 13.sp)
             }
         }
@@ -87,9 +94,15 @@ fun CategoriesScreen(vm: AppViewModel) {
                 else { vm.setCategoriesHidden(shown.map { it.id }, true); confirmAll = false }
             }
             ActionChip("Show $label") { vm.setCategoriesHidden(shown.map { it.id }, false) }
+            if (vm.categoryOrder.isNotEmpty()) ActionChip("Reset order") { vm.resetCategoryOrder() }
             ActionChip("Done") { vm.navigate(Screen.Settings) }
         }
         if (confirmAll) Text("That hides every category. Press Hide again to confirm.", color = Palette.Live, fontSize = 13.sp)
+        if (moving != null) {
+            Text("Moving: ▲◀ earlier  ·  ▼▶ later  ·  ◀◀ ▶▶ 10 places  ·  OK to drop", color = Palette.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        } else if (words.isNotEmpty()) {
+            Text("Clear the filter to move categories.", color = Palette.TextMuted, fontSize = 12.sp)
+        }
 
         LazyVerticalGrid(
             columns = GridCells.Adaptive(260.dp),
@@ -100,7 +113,22 @@ fun CategoriesScreen(vm: AppViewModel) {
         ) {
             items(shown, key = { it.id }) { c ->
                 val isShown = c.id !in hidden
-                FocusTile(onClick = { vm.setCategoriesHidden(listOf(c.id), isShown) }, corner = 10.dp, focusedScale = 1.03f) {
+                val isMoving = moving == c.id
+                FocusTile(
+                    onClick = { if (isMoving) moving = null else vm.setCategoriesHidden(listOf(c.id), isShown) },
+                    onLongClick = { if (words.isEmpty()) moving = c.id },
+                    selected = isMoving, corner = 10.dp, focusedScale = if (isMoving) 1.06f else 1.03f,
+                    modifier = Modifier.onPreviewKeyEvent { e ->
+                        if (!isMoving || e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        when (e.key.nativeKeyCode) {
+                            android.view.KeyEvent.KEYCODE_DPAD_UP, android.view.KeyEvent.KEYCODE_DPAD_LEFT -> { vm.moveCategory(c.id, -1); true }
+                            android.view.KeyEvent.KEYCODE_DPAD_DOWN, android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> { vm.moveCategory(c.id, 1); true }
+                            android.view.KeyEvent.KEYCODE_MEDIA_REWIND -> { vm.moveCategory(c.id, -10); true }
+                            android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { vm.moveCategory(c.id, 10); true }
+                            else -> false
+                        }
+                    },
+                ) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Box(
@@ -109,7 +137,7 @@ fun CategoriesScreen(vm: AppViewModel) {
                                 .border(2.dp, if (isShown) Palette.Accent else Palette.TextMuted, RoundedCornerShape(5.dp)),
                             contentAlignment = Alignment.Center,
                         ) { if (isShown) Text("✓", color = Palette.Background, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-                        Text(c.name, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                        Text(if (isMoving) "↕  " + c.name else c.name, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                             color = if (isShown) LocalContentColor.current else LocalContentColor.current.copy(alpha = 0.45f))
                         Text(vm.categoryChannelCount(c.id).toString(), fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = 0.55f))
                     }

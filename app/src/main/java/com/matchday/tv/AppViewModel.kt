@@ -123,6 +123,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val backupClients = HashMap<String, XtreamClient>()
     private var backupJob: Job? = null
 
+    // ---------- Subtitles ----------
+    private var subtitlesOn = prefs.subtitles
+    private var subtitleLang = prefs.subtitleLanguage
+
+    fun setSubtitlePref(on: Boolean, language: String?) {
+        subtitlesOn = on
+        prefs.subtitles = on
+        if (on && !language.isNullOrBlank() && language != "und") {
+            subtitleLang = language
+            prefs.subtitleLanguage = language
+        }
+    }
+
+    /** Apply the remembered subtitle choice to a player before something new plays. */
+    fun applySubtitlePrefs(player: androidx.media3.common.Player) {
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .clearOverridesOfType(androidx.media3.common.C.TRACK_TYPE_TEXT)
+            .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT, !subtitlesOn)
+            .setPreferredTextLanguage(subtitleLang ?: "en")
+            .setSelectUndeterminedTextLanguage(true)
+            .build()
+    }
+
     var useBackups by mutableStateOf(prefs.useBackups)
         private set
 
@@ -226,7 +249,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** All provider categories, including hidden ones, for the manage page. */
-    val allCategories: List<Category> get() = categories
+    val allCategories: List<Category> get() = orderedCategories
 
     fun setCategoriesHidden(ids: Collection<String>, hidden: Boolean) {
         hiddenCategories = if (hidden) hiddenCategories + ids else hiddenCategories - ids.toSet()
@@ -237,11 +260,42 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun categoryChannelCount(id: String): Int = allChannels.count { it.categoryId == id }
 
     /** Categories shown in the side list, with the two built-in ones first. */
+    /** Category ids in the user's order (per subscription); empty means the provider's order. */
+    var categoryOrder by mutableStateOf<List<String>>(emptyList())
+        private set
+
+    private val orderedCategories: List<Category> by derivedStateOf {
+        val order = categoryOrder
+        if (order.isEmpty()) categories
+        else {
+            val pos = order.withIndex().associate { (i, id) -> id to i }
+            // Known ones in your order; new categories from the provider go at the end in its order.
+            categories.withIndex().sortedBy { (i, c) -> pos[c.id] ?: (order.size + i) }.map { it.value }
+        }
+    }
+
+    fun moveCategory(id: String, delta: Int) {
+        val ids = orderedCategories.map { it.id }.toMutableList()
+        val from = ids.indexOf(id)
+        if (from < 0) return
+        val to = (from + delta).coerceIn(0, ids.lastIndex)
+        if (to == from) return
+        ids.removeAt(from)
+        ids.add(to, id)
+        categoryOrder = ids
+        activeSubscription?.let { prefs.setCategoryOrder(it.id, ids) }
+    }
+
+    fun resetCategoryOrder() {
+        categoryOrder = emptyList()
+        activeSubscription?.let { prefs.setCategoryOrder(it.id, emptyList()) }
+    }
+
     val categoryList: List<Category> by derivedStateOf {
         listOf(
             Category(CATEGORY_FAVOURITES, "Favourites"),
             Category(CATEGORY_ALL, "All channels"),
-        ) + categories.filter { it.id !in hiddenCategories }
+        ) + orderedCategories.filter { it.id !in hiddenCategories }
     }
 
     val currentChannel: Channel? get() = playlist.getOrNull(playingIndex)
@@ -508,6 +562,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 prefs.activeId = sub.id
                 favourites = prefs.favourites(sub.id)
                 hiddenCategories = prefs.hiddenCategories(sub.id)
+                categoryOrder = prefs.categoryOrder(sub.id)
                 editingSubscription = null
                 loadingMessage = "Loading channels…"
                 val cats = c.liveCategories()

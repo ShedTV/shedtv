@@ -84,6 +84,7 @@ fun VodPlayerScreen(vm: AppViewModel) {
     var status by remember { mutableStateOf<String?>("Loading…") }
     var upNextIn by remember { mutableIntStateOf(-1) }
     val focus = remember { FocusRequester() }
+    var menuOpen by remember { mutableStateOf(false) }
 
     val player = remember {
         val http = DefaultHttpDataSource.Factory()
@@ -159,6 +160,7 @@ fun VodPlayerScreen(vm: AppViewModel) {
     LaunchedEffect(current.id) {
         status = "Loading…"
         upNextIn = -1
+        vm.applySubtitlePrefs(player)
         player.setMediaItem(MediaItem.fromUri(current.url), current.startAt)
         player.prepare()
         player.play()
@@ -189,6 +191,7 @@ fun VodPlayerScreen(vm: AppViewModel) {
 
     BackHandler {
         when {
+            menuOpen -> { menuOpen = false; runCatching { focus.requestFocus() } }
             upNextIn >= 0 -> { upNextIn = -1; vm.closePlayer() }
             showOverlay && playing -> showOverlay = false
             else -> vm.closePlayer()
@@ -208,7 +211,9 @@ fun VodPlayerScreen(vm: AppViewModel) {
             .background(Color.Black)
             .onPreviewKeyEvent { e ->
                 if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (menuOpen) return@onPreviewKeyEvent false
                 when (e.key.nativeKeyCode) {
+                    AndroidKeyEvent.KEYCODE_MENU, AndroidKeyEvent.KEYCODE_DPAD_DOWN -> { showOverlay = false; menuOpen = true; true }
                     AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER,
                     AndroidKeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, AndroidKeyEvent.KEYCODE_SPACE -> {
                         if (upNextIn >= 0) { upNextIn = 0 } else if (player.isPlaying) player.pause() else player.play()
@@ -220,7 +225,7 @@ fun VodPlayerScreen(vm: AppViewModel) {
                     AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> { seekBy(SEEK_SMALL * 3); true }
                     AndroidKeyEvent.KEYCODE_MEDIA_REWIND -> { seekBy(-SEEK_BIG); true }
                     AndroidKeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { seekBy(SEEK_BIG); true }
-                    AndroidKeyEvent.KEYCODE_DPAD_UP, AndroidKeyEvent.KEYCODE_DPAD_DOWN, AndroidKeyEvent.KEYCODE_INFO -> { poke(); true }
+                    AndroidKeyEvent.KEYCODE_DPAD_UP, AndroidKeyEvent.KEYCODE_INFO -> { poke(); true }
                     AndroidKeyEvent.KEYCODE_MEDIA_NEXT -> { save(); playNext(); true }
                     else -> false
                 }
@@ -235,6 +240,7 @@ fun VodPlayerScreen(vm: AppViewModel) {
                     resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                     setShutterBackgroundColor(android.graphics.Color.BLACK)
                     keepScreenOn = true
+                    styleSubtitles()
                     this.player = player
                 }
             },
@@ -263,7 +269,19 @@ fun VodPlayerScreen(vm: AppViewModel) {
             }
         }
 
-        AnimatedVisibility(visible = showOverlay || !playing, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
+        AnimatedVisibility(
+            visible = menuOpen,
+            enter = androidx.compose.animation.slideInHorizontally { it } + fadeIn(),
+            exit = androidx.compose.animation.slideOutHorizontally { it } + fadeOut(),
+            modifier = Modifier.align(Alignment.CenterEnd),
+        ) {
+            TrackMenu(vm, player, onLastChannel = null) {
+                menuOpen = false
+                runCatching { focus.requestFocus() }
+            }
+        }
+
+        AnimatedVisibility(visible = (showOverlay || !playing) && !menuOpen, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
             VodOverlay(current, position, duration, playing)
         }
     }
@@ -288,7 +306,7 @@ private fun VodOverlay(p: Playable, position: Long, duration: Long, playing: Boo
                 Spacer(Modifier.padding(start = 10.dp))
                 Text(clock(position), color = Palette.TextSoft, fontSize = 14.sp)
                 Spacer(Modifier.weight(1f))
-                Text("◀ −10s   ▶ +30s   ◀◀ ▶▶ 1 min   OK pause", color = Palette.TextMuted, fontSize = 12.sp)
+                Text("◀ −10s   ▶ +30s   ◀◀ ▶▶ 1 min   OK pause   ▼ subtitles & audio", color = Palette.TextMuted, fontSize = 12.sp)
                 Spacer(Modifier.weight(1f))
                 Text(if (duration > 0) "-" + clock(duration - position) else "", color = Palette.TextSoft, fontSize = 14.sp)
             }
