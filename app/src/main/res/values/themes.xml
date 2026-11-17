@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="bg">#FF07090C</color>
-    <color name="accent">#FF2EE6A6</color>
+    <color name="accent">#FF3DC45F</color>
+    <color name="icon_bg">#FFF4F1EA</color>
     <style name="Theme.Matchday" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:colorAccent">@color/accent</item>

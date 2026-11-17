@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ShedTV mark, redrawn from the hand-drawn logo. Generated from tools/logo/shed.py -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp" android:height="100dp"
+    android:viewportWidth="100" android:viewportHeight="100">
+    <path android:pathData="M20.00,12.00 L30.00,12.00 L30.00,16.00 L28.50,16.00 L28.50,32.00 L21.50,32.00 L21.50,16.00 L20.00,16.00 Z" android:fillColor="#E8B866" android:strokeColor="#14213D" android:strokeWidth="3.20" android:strokeLineJoin="round" />
+    <path android:pathData="M14.00,52.00 L42.00,52.00 L42.00,88.00 L14.00,86.00 Z" android:fillColor="#D49B45" android:strokeColor="#14213D" android:strokeWidth="3.20" android:strokeLineJoin="round" />
+    <path android:pathData="M42.00,52.00 L63.00,30.00 L84.00,52.00 L84.00,88.00 L42.00,88.00 Z" android:fillColor="#E8B866" android:strokeColor="#14213D" android:strokeWidth="3.20" android:strokeLineJoin="round" />
+    <path android:pathData="M40.00,20.00 L63.00,27.00 L38.00,55.00 L8.00,52.00 Z" android:fillColor="#9FB2A3" android:strokeColor="#14213D" android:strokeWidth="3.20" android:strokeLineJoin="round" />
+    <path android:pathData="M43.22,20.98 L46.90,22.10 L17.00,52.90 L12.20,52.42 Z" android:fillColor="#D3DDD2" />
+    <path android:pathData="M50.58,23.22 L54.26,24.34 L26.60,53.86 L21.80,53.38 Z" android:fillColor="#D3DDD2" />
+    <path android:pathData="M57.94,25.46 L61.16,26.44 L35.60,54.76 L31.40,54.34 Z" android:fillColor="#D3DDD2" />
+    <path android:pathData="M40.00,20.00 L63.00,27.00 L38.00,55.00 L8.00,52.00 Z" android:strokeColor="#14213D" android:strokeWidth="3.20" android:strokeLineJoin="round" />
+    <path android:pathData="M63.00,23.00 L92.00,54.00 L88.00,58.00 L63.00,31.00 L38.00,59.00 L35.00,55.00 Z" android:fillColor="#14213D" />
+    <path android:pathData="M50.00,59.00 L76.00,59.00 L76.00,88.00 L50.00,88.00 Z" android:fillColor="#E8B866" android:strokeColor="#14213D" android:strokeWidth="3.20" android:strokeLineJoin="round" />
+    <path android:pathData="M58.70,60.50 V86.50" android:strokeColor="#14213D" android:strokeWidth="1.60" />
+    <path android:pathData="M67.30,60.50 V86.50" android:strokeColor="#14213D" android:strokeWidth="1.60" />
+    <path android:pathData="M20.00,60.00 L32.00,60.00 L32.00,72.00 L20.00,72.00 Z" android:fillColor="#14213D" android:strokeColor="#14213D" android:strokeWidth="3.20" android:strokeLineJoin="round" />
+    <path android:pathData="M56.50,63.50 L56.50,83.50 L73.00,73.50 Z" android:fillColor="#2FB24C" android:strokeColor="#14213D" android:strokeWidth="2.60" android:strokeLineJoin="round" />
+</vector>

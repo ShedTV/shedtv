@@ -51,7 +51,7 @@ object Palette {
     val Text = Color(0xFFF2F5F8)
     val TextSoft = Color(0xFFC9D3DE)
     val TextMuted = Color(0xFF8C9AAB)
-    val Accent = Color(0xFF2EE6A6)
+    val Accent = Color(0xFF3DC45F)
     val Live = Color(0xFFFF3B3B)
     val Divider = Color(0x1FFFFFFF)
 }
@@ -167,38 +167,14 @@ fun ProgressBar(progress: Float, modifier: Modifier = Modifier, height: Dp = 4.d
     }
 }
 
-private class ShedShape(val color: Long, val points: List<Pair<Float, Float>>)
-
-private val shedShapes = listOf(
-        ShedShape(0xFF2EE6A6, listOf(10.0f to 46.0f, 50.0f to 25.0f, 90.0f to 46.0f, 90.0f to 86.0f, 10.0f to 86.0f)),
-        ShedShape(0xFF25C48D, listOf(19.1f to 46.8f, 20.9f to 46.8f, 20.9f to 86.0f, 19.1f to 86.0f)),
-        ShedShape(0xFF25C48D, listOf(29.1f to 41.5f, 30.9f to 41.5f, 30.9f to 86.0f, 29.1f to 86.0f)),
-        ShedShape(0xFF25C48D, listOf(69.1f to 41.5f, 70.9f to 41.5f, 70.9f to 86.0f, 69.1f to 86.0f)),
-        ShedShape(0xFF25C48D, listOf(79.1f to 46.8f, 80.9f to 46.8f, 80.9f to 86.0f, 79.1f to 86.0f)),
-        ShedShape(0xFF138A62, listOf(0.0f to 46.0f, 50.0f to 17.0f, 100.0f to 46.0f, 100.0f to 53.0f, 50.0f to 24.0f, 0.0f to 53.0f)),
-        ShedShape(0xFF1BA977, listOf(39.0f to 55.0f, 61.0f to 55.0f, 61.0f to 86.0f, 39.0f to 86.0f)),
-        ShedShape(0xFF138A62, listOf(39.0f to 59.0f, 61.0f to 59.0f, 61.0f to 62.0f, 39.0f to 62.0f)),
-        ShedShape(0xFF138A62, listOf(39.0f to 79.0f, 61.0f to 79.0f, 61.0f to 82.0f, 39.0f to 82.0f)),
-        ShedShape(0xFF138A62, listOf(39.0f to 79.0f, 57.5f to 59.0f, 61.0f to 59.0f, 61.0f to 62.0f, 42.5f to 82.0f, 39.0f to 82.0f)),
-        ShedShape(0xFF07090C, listOf(44.0f to 33.0f, 56.0f to 33.0f, 56.0f to 43.0f, 44.0f to 43.0f)),
-        ShedShape(0xFF2EE6A6, listOf(46.0f to 35.0f, 54.0f to 35.0f, 54.0f to 41.0f, 46.0f to 41.0f)),
-        ShedShape(0xFF138A62, listOf(4.0f to 86.0f, 96.0f to 86.0f, 96.0f to 91.0f, 4.0f to 91.0f)),
-)
-
-/** The ShedTV logo mark, drawn from the same geometry as the launcher icon. */
+/** The ShedTV logo mark. */
 @Composable
 fun ShedMark(size: Dp) {
-    androidx.compose.foundation.Canvas(Modifier.size(size)) {
-        val s = this.size.minDimension / 100f
-        shedShapes.forEach { shape ->
-            val path = androidx.compose.ui.graphics.Path()
-            shape.points.forEachIndexed { i, (x, y) ->
-                if (i == 0) path.moveTo(x * s, y * s) else path.lineTo(x * s, y * s)
-            }
-            path.close()
-            drawPath(path, Color(shape.color))
-        }
-    }
+    androidx.compose.foundation.Image(
+        painter = androidx.compose.ui.res.painterResource(R.drawable.ic_shed),
+        contentDescription = "ShedTV",
+        modifier = Modifier.size(size),
+    )
 }
 
 /**
