@@ -3,6 +3,7 @@ package com.matchday.tv
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
@@ -56,6 +57,14 @@ import com.matchday.tv.ui.MatchdayTheme
 import com.matchday.tv.ui.PlayerScreen
 
 class MainActivity : ComponentActivity() {
+    private val appVm: AppViewModel by viewModels()
+
+    override fun onStop() {
+        super.onStop()
+        // Home button or the TV going to sleep: close the provider connection.
+        appVm.live.stop()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -112,6 +121,7 @@ private fun App(vm: AppViewModel = viewModel()) {
 
 @Composable
 private fun Screens(vm: AppViewModel) {
+    LaunchedEffect(vm.screen, vm.previewEnabled) { vm.onScreenShown(vm.screen) }
     val animate = vm.animations
     AnimatedContent(
         targetState = vm.screen,

@@ -88,6 +88,14 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("mergeQualities", false)
         set(value) = sp.edit().putBoolean("mergeQualities", value).apply()
 
+    var preview: Boolean
+        get() = sp.getBoolean("preview", true)
+        set(value) = sp.edit().putBoolean("preview", value).apply()
+
+    var stay50Hz: Boolean
+        get() = sp.getBoolean("stay50Hz", false)
+        set(value) = sp.edit().putBoolean("stay50Hz", value).apply()
+
     var animations: Boolean
         get() = sp.getBoolean("animations", true)
         set(value) = sp.edit().putBoolean("animations", value).apply()

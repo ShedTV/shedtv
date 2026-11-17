@@ -5,6 +5,7 @@ package com.matchday.tv.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -174,6 +175,7 @@ fun LiveTvScreen(vm: AppViewModel) {
         }
 
         // Details
+        PreviewFollower(vm, focused)
         ChannelDetails(
             channel = focused,
             vm = vm,
@@ -276,22 +278,24 @@ private fun ChannelDetails(channel: Channel?, vm: AppViewModel, modifier: Modifi
         modifier
             .clip(RoundedCornerShape(18.dp))
             .background(Palette.Card)
-            .padding(28.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (channel == null) {
             Text("Pick a channel", color = Palette.TextMuted, fontSize = 18.sp)
             return@Column
         }
         val (current, next) = vm.programmesFor(channel).nowAndNext(now)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            ChannelLogo(channel, 56)
-            Column {
-                Text("${channel.num}  ·  ${channel.name}", color = Palette.TextSoft, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (channel.hasArchive) Text("Catch-up available", color = Palette.Accent, fontSize = 12.sp)
+        if (vm.previewEnabled) {
+            LivePreview(vm, Modifier.fillMaxWidth().aspectRatio(16f / 9f))
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ChannelLogo(channel, 40)
+            Column(Modifier.weight(1f)) {
+                Text(channel.num.toString() + if (channel.hasArchive) "  ·  catch-up" else "", color = Palette.TextMuted, fontSize = 12.sp)
+                Text(channel.name, color = Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
-        Spacer(Modifier.height(4.dp))
         if (current != null) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
@@ -300,20 +304,19 @@ private fun ChannelDetails(channel: Channel?, vm: AppViewModel, modifier: Modifi
                 )
                 Text("${formatTime(current.start)} – ${formatTime(current.end)}", color = Palette.TextMuted, fontSize = 14.sp)
             }
-            Text(current.title, color = Palette.Text, fontSize = 26.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            ProgressBar(current.progress(now), Modifier.fillMaxWidth(0.7f), height = 4.dp)
+            Text(current.title, color = Palette.Text, fontSize = 24.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, lineHeight = 26.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            ProgressBar(current.progress(now), Modifier.fillMaxWidth(), height = 4.dp)
             if (current.description.isNotBlank()) {
-                Text(current.description, color = Palette.TextSoft, fontSize = 14.sp, lineHeight = 20.sp, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                Text(current.description, color = Palette.TextSoft, fontSize = 14.sp, lineHeight = 18.sp, maxLines = if (vm.previewEnabled) 2 else 5, overflow = TextOverflow.Ellipsis)
             }
         } else {
             Text("No guide information", color = Palette.TextMuted, fontSize = 18.sp)
         }
         if (next != null) {
-            Spacer(Modifier.height(4.dp))
             Text("NEXT  ${formatTime(next.start)}", color = Palette.TextMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
             Text(next.title, color = Palette.TextSoft, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.weight(1f))
-        Text("OK to watch  ·  Hold OK to add or remove a favourite", color = Palette.TextMuted, fontSize = 12.sp)
+        Text("OK watch  ·  hold OK favourite", color = Palette.TextMuted, fontSize = 11.sp)
     }
 }

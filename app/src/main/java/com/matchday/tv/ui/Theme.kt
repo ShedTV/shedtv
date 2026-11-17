@@ -230,6 +230,37 @@ fun categoryLabel(name: String): androidx.compose.ui.text.AnnotatedString {
     }
 }
 
+/** Muted live preview from the shared player. Shows a placeholder until the picture arrives. */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@Composable
+fun LivePreview(vm: com.matchday.tv.AppViewModel, modifier: Modifier = Modifier) {
+    Box(modifier.clip(RoundedCornerShape(12.dp)).background(Color.Black)) {
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory = { ctx ->
+                androidx.media3.ui.PlayerView(ctx).apply {
+                    useController = false
+                    resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    setShutterBackgroundColor(android.graphics.Color.BLACK)
+                    player = vm.live.player
+                }
+            },
+            onRelease = { it.player = null },
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
+/** Starts the preview once the highlight has rested on [channel] for a moment, so scrolling doesn't open a connection per row. */
+@Composable
+fun PreviewFollower(vm: com.matchday.tv.AppViewModel, channel: com.matchday.tv.data.Channel?) {
+    LaunchedEffect(channel?.streamId, vm.live.stops, vm.previewEnabled) {
+        val ch = channel ?: return@LaunchedEffect
+        if (!vm.previewEnabled) return@LaunchedEffect
+        kotlinx.coroutines.delay(1_000)
+        vm.preview(ch)
+    }
+}
+
 private val timeFormat = SimpleDateFormat("HH:mm", Locale.UK)
 fun formatTime(millis: Long): String = timeFormat.format(Date(millis))
 

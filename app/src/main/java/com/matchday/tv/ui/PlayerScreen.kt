@@ -97,39 +97,14 @@ fun PlayerScreen(vm: AppViewModel) {
     val latestSourceIndex by rememberUpdatedState(sourceIndex)
     val latestChannelId by rememberUpdatedState(channel.streamId)
 
-    // Live rewind: the player reads from a recording of the stream rather than the network.
-    val timeshift = remember { com.matchday.tv.player.TimeshiftBuffer(java.io.File(context.cacheDir, "timeshift")) }
-    val useTimeshift = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
-    var rewindActive by remember { mutableStateOf(false) }
+    // Live rewind: the shared player reads from a recording of the stream rather than the network.
+    val live = vm.live
+    val timeshift = live.timeshift
+    var rewindActive by remember { mutableStateOf(live.isRecording) }
     var behindMs by remember { mutableStateOf(0L) }
     var paused by remember { mutableStateOf(false) }
     var listOpen by remember { mutableStateOf(false) }
-
-    val player = remember {
-        val http = DefaultHttpDataSource.Factory()
-            .setUserAgent(com.matchday.tv.data.UserAgents.current)
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(10_000)
-            .setReadTimeoutMs(15_000)
-        val loadControl = DefaultLoadControl.Builder()
-            // Start quickly, but hold a healthy buffer once running.
-            .setBufferDurationsMs(15_000, 50_000, 1_500, 3_000)
-            .build()
-        ExoPlayer.Builder(context)
-            .setMediaSourceFactory(
-                DefaultMediaSourceFactory(
-                    androidx.media3.datasource.DataSource.Factory {
-                        if (useTimeshift.get()) com.matchday.tv.player.TimeshiftDataSource(timeshift) else http.createDataSource()
-                    }
-                )
-            )
-            .setLoadControl(loadControl)
-            .build()
-            .apply {
-                playWhenReady = true
-                videoChangeFrameRateStrategy = C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_OFF
-            }
-    }
+    val player = live.player
 
     fun poke() {
         showOverlay = true
@@ -177,9 +152,9 @@ fun PlayerScreen(vm: AppViewModel) {
         player.addListener(listener)
         onDispose {
             player.removeListener(listener)
-            player.release()
-            timeshift.stop()
-            FrameRateMatcher.reset(activity)
+            // Hand back to the preview (muted) or let the app close the connection.
+            live.setMuted(true)
+            if (!vm.stay50Hz) FrameRateMatcher.reset(activity)
         }
     }
 
@@ -187,20 +162,22 @@ fun PlayerScreen(vm: AppViewModel) {
     LaunchedEffect(activeSource.streamId, retryNonce) {
         if (retryNonce > 0 && retries > 0) delay(1_500L * retries)
         val url = vm.streamUrl(activeSource) ?: return@LaunchedEffect
-        val item = MediaItem.Builder()
-            .setUri(url)
-            .apply { if (url.endsWith(".m3u8")) setMimeType(MimeTypes.APPLICATION_M3U8) }
-            .build()
-        if (retries == 0 && sourceIndex == 0) status = "Connecting…"
-        val buffered = vm.liveRewind && !url.endsWith(".m3u8") && timeshift.canBuffer()
-        useTimeshift.set(buffered)
-        rewindActive = buffered
-        timeshift.openTarget = -1
         paused = false
         behindMs = 0
-        player.setMediaItem(item)
-        player.prepare()
-        player.play()
+        val adopting = retryNonce == 0 && live.currentUrl == url && player.playbackState != Player.STATE_IDLE
+        if (adopting) {
+            // The preview was already playing this: carry on, just with sound. No second connection.
+            live.setMuted(false)
+            rewindActive = live.isRecording
+            if (player.playbackState == Player.STATE_READY) status = null
+            player.videoFormat?.let { f ->
+                FrameRateMatcher.match(activity, f.frameRate)
+                if (player.videoSize.height > 0) videoInfo = "${player.videoSize.height}p · " + (if (f.frameRate > 1f) "${f.frameRate.toInt()}fps" else "50Hz")
+            }
+        } else {
+            if (retries == 0 && sourceIndex == 0) status = "Connecting…"
+            rewindActive = live.start(url, activeSource.streamId, rewind = vm.liveRewind, muted = false)
+        }
     }
 
     LaunchedEffect(channel.streamId) {
@@ -225,16 +202,11 @@ fun PlayerScreen(vm: AppViewModel) {
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
             when (event) {
                 androidx.lifecycle.Lifecycle.Event.ON_STOP -> {
-                    player.stop()
-                    timeshift.stop()
-                    timeshift.openTarget = -1
+                    live.stop()
                     paused = false
                 }
                 androidx.lifecycle.Lifecycle.Event.ON_START ->
-                    if (player.mediaItemCount > 0 && player.playbackState == Player.STATE_IDLE) {
-                        player.prepare()
-                        player.play()
-                    }
+                    if (live.currentUrl == null) retryNonce++
                 else -> Unit
             }
         }

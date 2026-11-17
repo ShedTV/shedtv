@@ -9,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -136,6 +137,7 @@ fun GuideScreen(vm: AppViewModel) {
     }
 
     BackHandler { vm.navigate(Screen.Sport) }
+    PreviewFollower(vm, selectedChannel)
 
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, Screen.Guide)
@@ -263,6 +265,13 @@ fun GuideScreen(vm: AppViewModel) {
                 ) {
                     // Time header
                     Box(Modifier.fillMaxWidth().height(24.dp)) {
+                        if (now in windowStart until windowEnd) {
+                            // Marker for "now" above the grid; the line itself runs behind the programmes.
+                            Box(
+                                Modifier.align(Alignment.BottomStart).offset(x = CHANNEL_COL + x(now) - 5.dp)
+                                    .size(10.dp).background(Palette.Accent, androidx.compose.foundation.shape.CircleShape)
+                            )
+                        }
                         Text(
                             dayLabel(windowStart, now), color = Palette.TextMuted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.align(Alignment.CenterStart),
@@ -279,6 +288,16 @@ fun GuideScreen(vm: AppViewModel) {
                     Box(Modifier.fillMaxSize()) {
                         if (channels.isEmpty()) {
                             Text("No channels in this category. Press ◀ to pick another category.", color = Palette.TextMuted, fontSize = 15.sp)
+                        }
+                        // "Now" line, drawn behind the programmes so it never cuts through their titles
+                        if (now in windowStart until windowEnd) {
+                            Box(
+                                Modifier
+                                    .offset(x = CHANNEL_COL + x(now) - 1.dp)
+                                    .width(2.dp)
+                                    .fillMaxHeight()
+                                    .background(Palette.Accent)
+                            )
                         }
                         LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.fillMaxSize()) {
                             itemsIndexed(channels, key = { _, c -> c.streamId }) { index, ch ->
@@ -298,16 +317,6 @@ fun GuideScreen(vm: AppViewModel) {
                                 )
                             }
                         }
-                        // "Now" line
-                        if (now in windowStart until windowEnd) {
-                            Box(
-                                Modifier
-                                    .offset(x = CHANNEL_COL + x(now) - 1.dp)
-                                    .width(2.dp)
-                                    .fillMaxHeight()
-                                    .background(Palette.Accent)
-                            )
-                        }
                     }
                 }
             }
@@ -317,7 +326,10 @@ fun GuideScreen(vm: AppViewModel) {
 
 @Composable
 private fun GuideHeader(vm: AppViewModel, channel: Channel?, block: Block?, now: Long) {
-    Row(Modifier.fillMaxWidth().height(84.dp), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+    Row(Modifier.fillMaxWidth().height(if (vm.previewEnabled) 104.dp else 84.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        if (vm.previewEnabled) {
+            LivePreview(vm, Modifier.fillMaxHeight().aspectRatio(16f / 9f))
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (channel != null) {
                 Text(

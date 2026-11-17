@@ -4,14 +4,16 @@ package com.matchday.tv.data
 object ChannelNames {
     private val tags = setOf(
         "UHD", "4K", "FHD", "HD", "SD", "HEVC", "H265", "H.265", "H264", "1080P", "720P", "50FPS", "60FPS",
-        "RAW", "BACKUP", "HDR", "ᵁᴴᴰ", "ᶠᴴᴰ", "ᴴᴰ", "ˢᴰ", "4K⁶⁰ᶠᵖˢ",
+        "FPS", "RAW", "BACKUP", "HDR", "ᵁᴴᴰ", "ᶠᴴᴰ", "ᴴᴰ", "ˢᴰ", "4K⁶⁰ᶠᵖˢ",
     )
     private val separators = Regex("[\\s|]+")
     private val bracketed = Regex("[\\[(][^\\])]*[\\])]")
     private val nonWord = Regex("[^A-Z0-9+ ]")
 
+    private val frameRate = Regex("(?i)(^|[^A-Z0-9])(25|50|60)\\s*FPS")
+
     private fun words(name: String): List<String> {
-        val noTagBrackets = bracketed.replace(name) { m ->
+        val noTagBrackets = bracketed.replace(frameRate.replace(name, "$1 ")) { m ->
             val inner = m.value.uppercase().trim('[', ']', '(', ')').split(separators)
             if (inner.isNotEmpty() && inner.all { it.isBlank() || it in tags }) " " else m.value
         }

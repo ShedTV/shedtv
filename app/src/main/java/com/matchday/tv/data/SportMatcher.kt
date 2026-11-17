@@ -96,6 +96,8 @@ object SportMatcher {
         if ("UHD" in n || "4K" in n) s += 30 else if ("FHD" in n || "1080" in n) s += 25 else if ("HD" in n) s += 20
         if ("SD" in n.split(' ', '|', '-')) s -= 10
         if ("BACKUP" in n || "RAW" in n) s -= 5
+        // 50fps feeds give the smoothest sport on UK TVs.
+        if (Regex("50\\s*FPS").containsMatchIn(n)) s += 8
         return s
     }
 }

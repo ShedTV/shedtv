@@ -211,6 +211,47 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var liveRewind by mutableStateOf(prefs.liveRewind)
         private set
 
+    /** The single live player, shared by the previews and full screen. */
+    val live = com.matchday.tv.player.LivePlayback(app)
+
+    var previewEnabled by mutableStateOf(prefs.preview)
+        private set
+
+    fun setPreviewEnabled(on: Boolean) {
+        previewEnabled = on
+        prefs.preview = on
+        if (!on && screen != Screen.Player) live.stop()
+    }
+
+    var stay50Hz by mutableStateOf(prefs.stay50Hz)
+        private set
+
+    fun setStay50HzEnabled(on: Boolean) {
+        stay50Hz = on
+        prefs.stay50Hz = on
+    }
+
+    /** Muted preview of a channel; keeps going if it's already playing this channel or one of its versions. */
+    fun preview(channel: Channel) {
+        if (!previewEnabled) return
+        val current = live.currentStreamId
+        if (current != null && sourcesFor(channel).any { it.streamId == current }) return
+        val best = sourcesFor(channel).first()
+        val url = streamUrl(best) ?: return
+        live.start(url, best.streamId, rewind = false, muted = true)
+    }
+
+    /** Live TV only runs where it can be seen: full screen, or a preview on Live TV / the guide. */
+    fun onScreenShown(s: Screen) {
+        val keep = s == Screen.Player || (previewEnabled && (s == Screen.Live || s == Screen.Guide))
+        if (!keep) live.stop()
+    }
+
+    override fun onCleared() {
+        live.release()
+        super.onCleared()
+    }
+
     /** Fades and slides between screens. */
     var animations by mutableStateOf(prefs.animations)
         private set
@@ -351,6 +392,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         guide = emptyMap()
         guideStatus = null
         library.reset()
+        live.stop()
         guideLoadedAt = 0
         playlist = emptyList()
         lastFocusedChannelId = null
