@@ -238,7 +238,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (current != null && sourcesFor(channel).any { it.streamId == current }) return
         val best = sourcesFor(channel).first()
         val url = streamUrl(best) ?: return
-        live.start(url, best.streamId, rewind = false, muted = true)
+        // Record from the start when live rewind is on, so pressing OK keeps rewind with no reconnect.
+        live.start(url, best.streamId, rewind = liveRewind, muted = true)
     }
 
     /** Live TV only runs where it can be seen: full screen, or a preview on Live TV / the guide. */
