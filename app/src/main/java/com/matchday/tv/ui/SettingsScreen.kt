@@ -128,6 +128,13 @@ fun SettingsScreen(vm: AppViewModel) {
                 Chip("Manage categories") { vm.navigate(Screen.Categories) }
 
                 Spacer(Modifier.height(2.dp))
+                Heading("One entry per channel", "Hides UHD, FHD, HD and SD duplicates and plays the best one. Press ▶▶ while watching live to try another version.")
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Chip("On", selected = vm.mergeQualities) { vm.setMergeQualitiesEnabled(true) }
+                    Chip("Off", selected = !vm.mergeQualities) { vm.setMergeQualitiesEnabled(false) }
+                }
+
+                Spacer(Modifier.height(2.dp))
                 Heading("Stream format", "Try HLS if some channels won't play")
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Chip("MPEG-TS", selected = vm.streamFormat == "ts") { vm.updateActive(streamFormat = "ts") }

@@ -385,7 +385,10 @@ fun PlayerScreen(vm: AppViewModel) {
         AnimatedVisibility(visible = showOverlay && !listOpen, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
             Overlay(
                 vm = vm, videoInfo = videoInfo,
-                sourceLabel = if (sources.size > 1) "Source ${sourceIndex + 1} of ${sources.size}" else "",
+                sourceLabel = if (sources.size > 1) {
+                    val q = com.matchday.tv.data.ChannelNames.quality(activeSource.name)
+                    (if (q.isNotEmpty()) "$q · " else "") + "source ${sourceIndex + 1} of ${sources.size}"
+                } else "",
                 rewindLabel = when {
                     !rewindActive -> ""
                     paused -> "❚❚  Paused  ·  ${behindClock(behindMs)} behind live"

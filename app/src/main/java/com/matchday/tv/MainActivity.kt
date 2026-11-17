@@ -103,7 +103,7 @@ private fun App(vm: AppViewModel = viewModel()) {
                 Column {
                     Text("KICK-OFF  ·  ${formatTime(alert.entry.start)}", color = Palette.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                     Text(alert.title, color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                    Text("${alert.channel.name}  ·  press ☰ Menu to watch", color = Palette.TextSoft, fontSize = 12.sp)
+                    Text("${vm.channelLabel(alert.channel)}  ·  press ☰ Menu to watch", color = Palette.TextSoft, fontSize = 12.sp)
                 }
             }
         }

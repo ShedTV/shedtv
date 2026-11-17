@@ -130,12 +130,39 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         else allChannels.filter { it.categoryId !in hidden || it.streamId in favourites }
     }
 
-    val visibleChannels: List<Channel> by derivedStateOf {
-        when (selectedCategoryId) {
-            CATEGORY_ALL -> shownChannels
-            CATEGORY_FAVOURITES -> allChannels.filter { it.streamId in favourites }
-            else -> allChannels.filter { it.categoryId == selectedCategoryId }
+    /** Show one entry per channel instead of every UHD/FHD/HD/SD version. */
+    var mergeQualities by mutableStateOf(prefs.mergeQualities)
+        private set
+
+    fun setMergeQualitiesEnabled(on: Boolean) {
+        mergeQualities = on
+        prefs.mergeQualities = on
+    }
+
+    /** Collapse quality versions into one entry: the best version, under the tidy name. */
+    private fun merge(list: List<Channel>): List<Channel> {
+        if (!mergeQualities) return list
+        val favs = favourites
+        val groups = LinkedHashMap<String, MutableList<Channel>>()
+        for (c in list) groups.getOrPut(com.matchday.tv.data.ChannelNames.key(c.name).ifEmpty { c.streamId }) { ArrayList() }.add(c)
+        return groups.values.map { g ->
+            val best = g.maxBy { com.matchday.tv.data.SportMatcher.channelScore(it, favs) }
+            best.copy(name = com.matchday.tv.data.ChannelNames.clean(best.name), num = g.minOf { it.num })
         }
+    }
+
+    /** A channel's name as lists show it. */
+    fun channelLabel(channel: Channel): String =
+        if (mergeQualities) com.matchday.tv.data.ChannelNames.clean(channel.name) else channel.name
+
+    val visibleChannels: List<Channel> by derivedStateOf {
+        merge(
+            when (selectedCategoryId) {
+                CATEGORY_ALL -> shownChannels
+                CATEGORY_FAVOURITES -> allChannels.filter { it.streamId in favourites }
+                else -> allChannels.filter { it.categoryId == selectedCategoryId }
+            }
+        )
     }
 
     /** All provider categories, including hidden ones, for the manage page. */
@@ -204,7 +231,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (words.joinToString("").length < 2) return@withContext SearchResults()
         fun hit(text: String): Boolean { val t = text.lowercase(); return words.all { t.contains(it) } }
         val favs = favourites
-        val chans = shownChannels
+        val chans = merge(shownChannels)
         val channelHits = chans.filter { hit(it.name) }
             .sortedByDescending { com.matchday.tv.data.SportMatcher.channelScore(it, favs) }.take(40)
         val bestByEpg = HashMap<String, Channel>()
@@ -231,11 +258,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     /** This channel plus other streams carrying the same thing (same guide id), best first. */
     fun sourcesFor(channel: Channel): List<Channel> {
-        val id = channel.epgId?.trim()?.lowercase()?.takeIf { it.isNotEmpty() } ?: return listOf(channel)
-        val others = allChannels
-            .filter { it.streamId != channel.streamId && it.epgId?.trim()?.lowercase() == id && !it.name.contains("+1") }
+        val original = allChannels.firstOrNull { it.streamId == channel.streamId } ?: channel
+        val versions = if (mergeQualities) {
+            val k = com.matchday.tv.data.ChannelNames.key(original.name)
+            allChannels.filter { com.matchday.tv.data.ChannelNames.key(it.name) == k }
+        } else emptyList()
+        val id = original.epgId?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
+        val sameGuide = if (id == null) emptyList() else allChannels.filter { it.epgId?.trim()?.lowercase() == id && !it.name.contains("+1") }
+        val others = (versions + sameGuide)
+            .filter { it.streamId != original.streamId }
+            .distinctBy { it.streamId }
             .sortedByDescending { com.matchday.tv.data.SportMatcher.channelScore(it, favourites) }
-        return (listOf(channel) + others).take(6)
+        return (listOf(original) + others).take(8)
     }
 
     /** Go straight to a channel from anywhere (kick-off alerts). */

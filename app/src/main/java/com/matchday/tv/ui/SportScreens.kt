@@ -2,6 +2,7 @@
 
 package com.matchday.tv.ui
 
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.geometry.Offset
@@ -134,11 +135,11 @@ fun SportHubScreen(vm: AppViewModel) {
             Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(start = 28.dp, end = 28.dp, top = 24.dp, bottom = 28.dp),
+                .padding(start = 20.dp, end = 36.dp, top = 24.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(22.dp),
         ) {
             // Header
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(start = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("SPORT", color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
                 Spacer(Modifier.width(14.dp))
                 Text(SimpleDateFormat("EEEE d MMMM", Locale.UK).format(Date(now)), color = Palette.TextMuted, fontSize = 15.sp)
@@ -178,7 +179,7 @@ fun SportHubScreen(vm: AppViewModel) {
                 if (live.isEmpty()) {
                     Empty(if (vm.guide.isEmpty()) "Waiting for the TV guide…" else "No live football or rugby league in your guide right now.")
                 } else {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(vertical = 8.dp, horizontal = 4.dp)) {
+                    LazyRow(modifier = Modifier.fadeRightEdge(), horizontalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(vertical = 10.dp, horizontal = 16.dp)) {
                         items(live, key = { it.channel.streamId + it.entry.start }) { f -> LiveCard(vm, f, now) }
                     }
                 }
@@ -188,7 +189,7 @@ fun SportHubScreen(vm: AppViewModel) {
                 when {
                     hub.followed.isEmpty() -> Empty("Pick your teams to see their upcoming matches here.")
                     upcoming.isEmpty() -> Empty("Nothing found in the next 7 days of your TV guide yet.")
-                    else -> LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(vertical = 8.dp, horizontal = 4.dp)) {
+                    else -> LazyRow(modifier = Modifier.fadeRightEdge(), horizontalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(vertical = 10.dp, horizontal = 16.dp)) {
                         items(upcoming, key = { it.channel.streamId + it.entry.start }) { f -> UpcomingCard(vm, f, now) }
                     }
                 }
@@ -196,7 +197,7 @@ fun SportHubScreen(vm: AppViewModel) {
 
             if (hub.followed.isNotEmpty()) {
                 Section("My teams") {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(vertical = 8.dp, horizontal = 4.dp)) {
+                    LazyRow(modifier = Modifier.fadeRightEdge(), horizontalArrangement = Arrangement.spacedBy(14.dp), contentPadding = PaddingValues(vertical = 10.dp, horizontal = 16.dp)) {
                         items(hub.followed, key = { it.key }) { t ->
                             FocusTile(onClick = { vm.navigate(Screen.Teams) }, corner = 14.dp, focusedScale = 1.06f) {
                                 Column(Modifier.width(96.dp).padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -214,15 +215,15 @@ fun SportHubScreen(vm: AppViewModel) {
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title.uppercase(), color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(modifier = Modifier.padding(start = 16.dp), text = title.uppercase(), color = Palette.Text, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
         content()
     }
 }
 
 @Composable
 private fun Empty(text: String) {
-    Text(text, color = Palette.TextMuted, fontSize = 14.sp, modifier = Modifier.padding(vertical = 10.dp))
+    Text(text, color = Palette.TextMuted, fontSize = 14.sp, modifier = Modifier.padding(start = 16.dp, top = 10.dp, bottom = 10.dp))
 }
 
 @Composable
@@ -252,14 +253,14 @@ private fun FeaturedMatch(vm: AppViewModel, f: Fixture, now: Long, comingUp: Lis
     val hub = vm.sport
     val glow by animateColorAsState(glowColour(f), tween(700), label = "glow")
     Box(
-        Modifier.fillMaxWidth().drawBehind {
-            drawRect(
-                Brush.radialGradient(
-                    listOf(glow.copy(alpha = 0.30f), Color.Transparent),
-                    center = Offset(size.width * 0.32f, size.height * 0.5f),
-                    radius = size.width * 0.5f,
-                )
-            )
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp).drawBehind {
+            // An oval that fades to nothing before every edge, so the glow never shows a border.
+            val r = size.height * 0.62f
+            val stretch = (size.width * 0.42f) / r
+            val c = Offset(size.width * 0.33f, size.height * 0.5f)
+            scale(scaleX = stretch, scaleY = 1f, pivot = c) {
+                drawCircle(Brush.radialGradient(listOf(glow.copy(alpha = 0.24f), Color.Transparent), center = c, radius = r), radius = r, center = c)
+            }
         }
     ) {
         Row(
@@ -271,7 +272,7 @@ private fun FeaturedMatch(vm: AppViewModel, f: Fixture, now: Long, comingUp: Lis
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     LiveBadge()
                     Text(
-                        listOf(f.competition, f.channel.name).filter { it.isNotBlank() }.joinToString("  ·  "),
+                        listOf(f.competition, vm.channelLabel(f.channel)).filter { it.isNotBlank() }.joinToString("  ·  "),
                         color = Palette.TextSoft, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -331,7 +332,7 @@ private fun ComingUpPanel(vm: AppViewModel, list: List<Fixture>, now: Long) {
                     }
                     Column(Modifier.weight(1f)) {
                         Text(f.title, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(f.channel.name, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        Text(vm.channelLabel(f.channel), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             color = LocalContentColor.current.copy(alpha = 0.65f))
                     }
                     if (f.involves(vm.sport.followedKeys)) Text("★", fontSize = 12.sp, color = Palette.Accent)
@@ -361,7 +362,7 @@ private fun LiveCard(vm: AppViewModel, f: Fixture, now: Long) {
             TeamLine(hub, f.homeTeam, f.home)
             TeamLine(hub, f.awayTeam, f.away)
             ProgressBar(f.entry.progress(now), Modifier.fillMaxWidth(), height = 4.dp)
-            Text(f.channel.name, color = Palette.TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(vm.channelLabel(f.channel), color = Palette.TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -383,8 +384,8 @@ private fun UpcomingCard(vm: AppViewModel, f: Fixture, now: Long) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Column(Modifier.width(64.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(whenLabel(f.entry.start, now).uppercase(), color = Palette.TextMuted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Column(Modifier.width(78.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(whenLabel(f.entry.start, now).uppercase(), color = Palette.TextMuted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                 Text(formatTime(f.entry.start), color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -393,7 +394,7 @@ private fun UpcomingCard(vm: AppViewModel, f: Fixture, now: Long) {
                     TeamBadge(hub, f.awayTeam, f.away, 26.dp)
                 }
                 Text(f.title, color = Palette.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(f.channel.name, color = Palette.TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(vm.channelLabel(f.channel), color = Palette.TextMuted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }

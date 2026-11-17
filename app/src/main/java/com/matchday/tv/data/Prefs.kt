@@ -84,6 +84,10 @@ class Prefs(context: Context) {
             sp.edit().putString("subscriptions", arr.toString()).apply()
         }
 
+    var mergeQualities: Boolean
+        get() = sp.getBoolean("mergeQualities", false)
+        set(value) = sp.edit().putBoolean("mergeQualities", value).apply()
+
     var animations: Boolean
         get() = sp.getBoolean("animations", true)
         set(value) = sp.edit().putBoolean("animations", value).apply()

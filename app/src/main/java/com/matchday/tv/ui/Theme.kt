@@ -2,6 +2,11 @@
 
 package com.matchday.tv.ui
 
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import com.matchday.tv.R
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -193,6 +198,21 @@ fun ShedMark(size: Dp) {
         }
     }
 }
+
+/**
+ * Fades a scrolling row out at its right edge, so a card that runs off the end reads as
+ * "more this way" rather than being chopped off.
+ */
+fun Modifier.fadeRightEdge(width: Dp = 56.dp): Modifier = this
+    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+    .drawWithContent {
+        drawContent()
+        val f = (width.toPx() / size.width).coerceIn(0f, 0.5f)
+        drawRect(
+            Brush.horizontalGradient(0f to Color.Black, (1f - f) to Color.Black, 1f to Color.Transparent),
+            blendMode = BlendMode.DstIn,
+        )
+    }
 
 private val timeFormat = SimpleDateFormat("HH:mm", Locale.UK)
 fun formatTime(millis: Long): String = timeFormat.format(Date(millis))

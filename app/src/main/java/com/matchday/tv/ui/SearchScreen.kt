@@ -81,7 +81,7 @@ fun SearchScreen(vm: AppViewModel) {
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, Screen.Search)
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 28.dp, end = 24.dp, top = 24.dp, bottom = 32.dp),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 36.dp, top = 24.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -162,7 +162,7 @@ fun SearchScreen(vm: AppViewModel) {
 private fun SearchSection(title: String, count: Int, content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("$title  ·  $count", color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 8.dp, horizontal = 4.dp), content = content)
+        LazyRow(modifier = Modifier.fadeRightEdge(), horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(vertical = 10.dp, horizontal = 16.dp), content = content)
     }
 }
 
