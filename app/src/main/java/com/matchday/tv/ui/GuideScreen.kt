@@ -139,6 +139,31 @@ fun GuideScreen(vm: AppViewModel) {
     BackHandler { vm.navigate(Screen.Sport) }
     PreviewFollower(vm, selectedChannel)
 
+    // Options for the highlighted programme: hold OK (any remote) or ☰.
+    var menuFor by remember { mutableStateOf<Pair<Channel, Block>?>(null) }
+    var okDown by remember { mutableStateOf(false) }
+    var swallowOk by remember { mutableStateOf(false) }
+    fun closeMenu() { menuFor = null; runCatching { gridFocus.requestFocus() } }
+    BackHandler(enabled = menuFor != null) { closeMenu() }
+    fun record(ch: Channel, entry: com.matchday.tv.data.EpgEntry?) {
+        val t = System.currentTimeMillis()
+        when {
+            vm.recordingFor(ch) != null -> vm.flash = "Already recording ${vm.channelLabel(ch)}."
+            entry != null && entry.isOn(t) -> vm.startRecording(ch, entry.title, entry.end + 15 * 60_000)
+            entry != null && entry.start > t -> vm.flash = "Recording future programmes is coming in the next update."
+            else -> vm.flash = "Pick a programme that's on now to record it."
+        }
+    }
+
+    Box(
+        Modifier.fillMaxSize().onPreviewKeyEvent { e ->
+            val code = e.key.nativeKeyCode
+            if (swallowOk && (code == AndroidKeyEvent.KEYCODE_DPAD_CENTER || code == AndroidKeyEvent.KEYCODE_ENTER)) {
+                if (e.type == KeyEventType.KeyUp) swallowOk = false
+                true
+            } else false
+        },
+    ) {
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, Screen.Guide)
         // Categories: moving onto one shows it in the grid; OK or Right goes into the grid.
@@ -195,10 +220,25 @@ fun GuideScreen(vm: AppViewModel) {
                     Modifier
                         .fillMaxSize()
                         .onPreviewKeyEvent { e ->
-                            if (e.type != KeyEventType.KeyDown || channels.isEmpty()) return@onPreviewKeyEvent false
+                            if (channels.isEmpty()) return@onPreviewKeyEvent false
                             val ch = channels.getOrNull(row) ?: return@onPreviewKeyEvent false
                             val blocks = rowBlocks(ch)
                             val cur = selectedIn(blocks) ?: return@onPreviewKeyEvent false
+                            val okKey = e.key.nativeKeyCode.let { it == AndroidKeyEvent.KEYCODE_DPAD_CENTER || it == AndroidKeyEvent.KEYCODE_ENTER }
+                            if (okKey && e.type == KeyEventType.KeyDown) {
+                                if (e.nativeKeyEvent.repeatCount == 0) okDown = true
+                                else if (okDown) { okDown = false; swallowOk = true; menuFor = ch to cur }
+                                return@onPreviewKeyEvent true
+                            }
+                            if (okKey && e.type == KeyEventType.KeyUp) {
+                                if (okDown) {
+                                    okDown = false
+                                    vm.lastFocusedChannelId = ch.streamId
+                                    vm.play(ch, from = Screen.Guide)
+                                }
+                                return@onPreviewKeyEvent true
+                            }
+                            if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                             when (e.key.nativeKeyCode) {
                                 AndroidKeyEvent.KEYCODE_DPAD_RIGHT -> {
                                     val next = blocks.firstOrNull { it.start >= cur.end }
@@ -247,22 +287,7 @@ fun GuideScreen(vm: AppViewModel) {
                                     anchor = windowStart
                                     true
                                 }
-                                AndroidKeyEvent.KEYCODE_MENU -> {
-                                    val e2 = cur.entry
-                                    when {
-                                        !vm.recordingEnabled -> { vm.cycleCategory(); row = 0 }
-                                        vm.recordingFor(ch) != null -> vm.flash = "Already recording ${vm.channelLabel(ch)}. Stop it from Recordings."
-                                        e2 != null && e2.isOn(System.currentTimeMillis()) -> vm.startRecording(ch, e2.title, e2.end + 15 * 60_000)
-                                        e2 != null && e2.start > System.currentTimeMillis() -> vm.flash = "Recording future programmes is coming in the next update."
-                                        else -> vm.flash = "Pick a programme that's on now to record it."
-                                    }
-                                    true
-                                }
-                                AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER -> {
-                                    vm.lastFocusedChannelId = ch.streamId
-                                    vm.play(ch, from = Screen.Guide)
-                                    true
-                                }
+                                AndroidKeyEvent.KEYCODE_MENU -> { menuFor = ch to cur; true }
                                 else -> false
                             }
                         }
@@ -331,6 +356,38 @@ fun GuideScreen(vm: AppViewModel) {
                 }
             }
         }
+    }
+    androidx.compose.animation.AnimatedVisibility(
+        visible = menuFor != null,
+        enter = androidx.compose.animation.slideInHorizontally { it } + androidx.compose.animation.fadeIn(),
+        exit = androidx.compose.animation.slideOutHorizontally { it } + androidx.compose.animation.fadeOut(),
+        modifier = Modifier.align(Alignment.CenterEnd),
+    ) {
+        val target = menuFor
+        if (target != null) {
+            val (ch, block) = target
+            val entry = block.entry
+            val t = System.currentTimeMillis()
+            val actions = buildList {
+                if (vm.recordingEnabled) {
+                    val active = vm.recordingFor(ch)
+                    when {
+                        active != null -> add(MenuAction("■  Stop recording") { com.matchday.tv.record.RecorderManager.stop(active.id) })
+                        entry != null && entry.isOn(t) -> add(MenuAction("●  Record (to ${formatTime(entry.end + 15 * 60_000)})") { record(ch, entry) })
+                        entry != null && entry.start > t -> add(MenuAction("●  Record (next update)") { record(ch, entry) })
+                    }
+                }
+                add(MenuAction(if (vm.isFavourite(ch)) "★  Remove from favourites" else "☆  Add to favourites") { vm.toggleFavourite(ch) })
+                add(MenuAction("☰  Change category") { catsOpen = true })
+            }
+            OptionsPanel(
+                title = entry?.title ?: block.title,
+                subtitle = vm.channelLabel(ch) + if (entry != null) "  ·  ${formatTime(entry.start)}–${formatTime(entry.end)}" else "",
+                actions = actions,
+                onClose = { closeMenu() },
+            )
+        }
+    }
     }
 }
 

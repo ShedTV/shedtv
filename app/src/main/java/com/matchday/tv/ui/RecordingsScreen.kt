@@ -99,7 +99,7 @@ fun RecordingsScreen(vm: AppViewModel) {
             Text(vm.recordingStorageLine() + "  ·  OK to watch  ·  hold OK to stop or delete", color = Palette.TextMuted, fontSize = 13.sp)
             Spacer(Modifier.padding(top = 10.dp))
             if (list.isEmpty()) {
-                Text("Nothing recorded yet. Press ☰ while watching live TV, or ☰ on a programme in the guide, to record.",
+                Text("Nothing recorded yet. Hold OK (or press ☰) while watching live TV, or on a programme in the guide, to record.",
                     color = Palette.TextMuted, fontSize = 15.sp, modifier = Modifier.padding(top = 30.dp))
             }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp), contentPadding = PaddingValues(top = 6.dp, bottom = 40.dp, start = 4.dp, end = 4.dp)) {

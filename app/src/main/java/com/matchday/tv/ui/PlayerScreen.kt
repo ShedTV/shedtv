@@ -256,6 +256,8 @@ fun PlayerScreen(vm: AppViewModel) {
     }
 
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+    var okDown by remember { mutableStateOf(false) }
+    var swallowOk by remember { mutableStateOf(false) }
 
     BackHandler {
         when {
@@ -271,6 +273,24 @@ fun PlayerScreen(vm: AppViewModel) {
             .fillMaxSize()
             .background(Color.Black)
             .onPreviewKeyEvent { event ->
+                // OK: tap opens the channel list, hold opens Options (for remotes without a ☰ button).
+                val code = event.key.nativeKeyCode
+                val isOk = code == AndroidKeyEvent.KEYCODE_DPAD_CENTER || code == AndroidKeyEvent.KEYCODE_ENTER
+                if (isOk && swallowOk) {
+                    if (event.type == KeyEventType.KeyUp) swallowOk = false
+                    return@onPreviewKeyEvent true
+                }
+                if (isOk && !menuOpen && !listOpen) {
+                    if (event.type == KeyEventType.KeyDown) {
+                        if (event.nativeKeyEvent.repeatCount == 0) okDown = true
+                        else if (okDown) { okDown = false; swallowOk = true; showOverlay = false; menuOpen = true }
+                        return@onPreviewKeyEvent true
+                    }
+                    if (event.type == KeyEventType.KeyUp) {
+                        if (okDown) { okDown = false; showOverlay = false; listOpen = true }
+                        return@onPreviewKeyEvent true
+                    }
+                }
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 // While the channel list is open, it gets the remote (Right closes it).
                 if (menuOpen) return@onPreviewKeyEvent false
@@ -296,11 +316,6 @@ fun PlayerScreen(vm: AppViewModel) {
                         true
                     }
                     AndroidKeyEvent.KEYCODE_MENU -> { showOverlay = false; menuOpen = true; true }
-                    AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER -> {
-                        showOverlay = false
-                        listOpen = true
-                        true
-                    }
                     AndroidKeyEvent.KEYCODE_INFO -> {
                         if (showOverlay) showOverlay = false else poke()
                         true
@@ -513,7 +528,7 @@ private fun Overlay(vm: AppViewModel, videoInfo: String, sourceLabel: String, re
             }
             Spacer(Modifier.height(2.dp))
             Text(
-                "OK channel list  ·  ▲▼ channel  ·  " + (if (rewindLabel.isNotEmpty()) "◀ ▶ 15s  ·  ◀◀ ▶▶ 1 min  ·  ⏯ pause  ·  ☰ options" else "◀◀ last channel  ·  ☰ options") +
+                "OK channel list  ·  ▲▼ channel  ·  " + (if (rewindLabel.isNotEmpty()) "◀ ▶ 15s  ·  ◀◀ ▶▶ 1 min  ·  ⏯ pause  ·  hold OK options" else "◀◀ last channel  ·  hold OK options") +
                     (if (sourceLabel.isNotEmpty()) "  ·  ▶▶ at live: switch source" else "") + "  ·  Back hide",
                 color = Palette.TextMuted, fontSize = 12.sp,
             )

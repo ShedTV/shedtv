@@ -72,6 +72,28 @@ private fun trackLabel(f: Format, index: Int): String {
     return base + (if (lang != null && f.label != null && !f.label!!.contains(lang, true)) " · $lang" else "") + extra + channels
 }
 
+data class MenuAction(val label: String, val action: () -> Unit)
+
+/** A short list of actions in the same style as the player's options (used by the guide). */
+@Composable
+fun OptionsPanel(title: String, subtitle: String, actions: List<MenuAction>, onClose: () -> Unit) {
+    val first = remember { FocusRequester() }
+    LaunchedEffect(Unit) { delay(60); runCatching { first.requestFocus() } }
+    Column(
+        Modifier.fillMaxHeight().width(380.dp)
+            .background(Brush.horizontalGradient(listOf(Color(0x0007090C), Color(0xE607090C), Color(0xF507090C))))
+            .padding(start = 40.dp, end = 24.dp, top = 28.dp, bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text("OPTIONS", color = Palette.Accent, fontSize = 18.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
+        Text(title, color = Palette.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(subtitle + "  ·  Back to close", color = Palette.TextMuted, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 8.dp))
+        actions.forEachIndexed { i, a ->
+            MenuItem(a.label, false, if (i == 0) Modifier.focusRequester(first) else Modifier) { onClose(); a.action() }
+        }
+    }
+}
+
 /** Options while watching: subtitles, audio and (for live TV) last channel. */
 @Composable
 fun TrackMenu(vm: AppViewModel, player: Player, onLastChannel: (() -> Unit)?, recordChannel: com.matchday.tv.data.Channel? = null, onClose: () -> Unit) {
