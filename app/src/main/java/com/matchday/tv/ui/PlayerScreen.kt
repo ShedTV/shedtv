@@ -159,7 +159,7 @@ fun PlayerScreen(vm: AppViewModel) {
     }
 
     // (Re)start playback whenever the channel changes or a retry is requested.
-    LaunchedEffect(activeSource.streamId, retryNonce) {
+    LaunchedEffect(activeSource.uid, retryNonce) {
         if (retryNonce > 0 && retries > 0) delay(1_500L * retries)
         val url = vm.streamUrl(activeSource) ?: return@LaunchedEffect
         paused = false
@@ -176,7 +176,7 @@ fun PlayerScreen(vm: AppViewModel) {
             }
         } else {
             if (retries == 0 && sourceIndex == 0) status = "Connecting…"
-            rewindActive = live.start(url, activeSource.streamId, rewind = vm.liveRewind, muted = false)
+            rewindActive = live.start(url, activeSource.uid, rewind = vm.liveRewind, muted = false, userAgent = vm.agentFor(activeSource.subId))
         }
     }
 
@@ -357,9 +357,10 @@ fun PlayerScreen(vm: AppViewModel) {
         AnimatedVisibility(visible = showOverlay && !listOpen, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.fillMaxSize()) {
             Overlay(
                 vm = vm, videoInfo = videoInfo,
-                sourceLabel = if (sources.size > 1) {
+                sourceLabel = if (sources.size > 1 || activeSource.subId != null) {
                     val q = com.matchday.tv.data.ChannelNames.quality(activeSource.name)
-                    (if (q.isNotEmpty()) "$q · " else "") + "source ${sourceIndex + 1} of ${sources.size}"
+                    val provider = if (activeSource.subId != null) vm.subscriptionName(activeSource.subId) + " · " else ""
+                    provider + (if (q.isNotEmpty()) "$q · " else "") + "source ${sourceIndex + 1} of ${sources.size}"
                 } else "",
                 rewindLabel = when {
                     !rewindActive -> ""

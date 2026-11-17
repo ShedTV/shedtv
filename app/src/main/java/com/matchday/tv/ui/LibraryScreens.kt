@@ -240,7 +240,7 @@ fun MovieDetailsScreen(vm: AppViewModel) {
     val lib = vm.library
     val movie = lib.openMovie ?: run { vm.navigate(Screen.Movies); return }
     val info = lib.movieInfo
-    val resume = lib.resumePoint("movie", movie.id)
+    val resume = lib.resumePoint("movie", lib.historyId(movie.subId, movie.id))
     val playFocus = remember { FocusRequester() }
     LaunchedEffect(movie.id) { delay(80); runCatching { playFocus.requestFocus() } }
     BackHandler { vm.navigate(Screen.Movies) }
@@ -290,8 +290,8 @@ fun SeriesDetailsScreen(vm: AppViewModel) {
     val seasons = info?.seasons.orEmpty()
     val episodes = seasons[lib.selectedSeason].orEmpty()
     val historyVersion = lib.historyVersion
-    val watched = remember(historyVersion, show.id) { lib.history().filter { it.parentId == show.id }.associateBy { it.id } }
-    val lastWatched = remember(historyVersion, show.id) { lib.history().firstOrNull { it.kind == "episode" && it.parentId == show.id } }
+    val watched = remember(historyVersion, show.id) { lib.history().filter { it.parentId == lib.historyId(show.subId, show.id) }.associateBy { it.id } }
+    val lastWatched = remember(historyVersion, show.id) { lib.history().firstOrNull { it.kind == "episode" && it.parentId == lib.historyId(show.subId, show.id) } }
     val firstFocus = remember { FocusRequester() }
     var focusedOnce by remember(show.id) { mutableStateOf(false) }
     LaunchedEffect(info) {
@@ -312,9 +312,9 @@ fun SeriesDetailsScreen(vm: AppViewModel) {
             lib.detailStatus?.let { Text(it, color = Palette.TextMuted, fontSize = 14.sp) }
 
             if (lastWatched != null && info != null) {
-                val (season, list) = seasons.entries.firstOrNull { (_, eps) -> eps.any { it.id == lastWatched.id } }?.toPair() ?: (null to null)
+                val (season, list) = seasons.entries.firstOrNull { (_, eps) -> eps.any { lib.historyId(show.subId, it.id) == lastWatched.id } }?.toPair() ?: (null to null)
                 if (season != null && list != null) {
-                    val idx = list.indexOfFirst { it.id == lastWatched.id }
+                    val idx = list.indexOfFirst { lib.historyId(show.subId, it.id) == lastWatched.id }
                     ActionButton("▶  Continue ${lastWatched.subtitle.substringBefore(" · ")} from ${fmtClock(lastWatched.position)}", primary = true,
                         modifier = Modifier.padding(top = 4.dp).focusRequester(firstFocus)) {
                         lib.episodePlayable(show, list, idx, fromStart = false)?.let { vm.playVod(it) }
@@ -341,7 +341,7 @@ fun SeriesDetailsScreen(vm: AppViewModel) {
                 contentPadding = PaddingValues(top = 4.dp, bottom = 24.dp, end = 8.dp, start = 2.dp),
             ) {
                 itemsIndexed(episodes, key = { _, e -> e.id }) { index, ep ->
-                    val w = watched[ep.id]
+                    val w = watched[lib.historyId(show.subId, ep.id)]
                     FocusTile(
                         onClick = { lib.episodePlayable(show, episodes, index, fromStart = false)?.let { vm.playVod(it) } },
                         corner = 12.dp, focusedScale = 1.02f,

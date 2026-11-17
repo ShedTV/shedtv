@@ -111,14 +111,14 @@ fun SearchScreen(vm: AppViewModel) {
             }
 
             if (results.channels.isNotEmpty()) SearchSection("Channels", results.channels.size) {
-                items(results.channels, key = { it.streamId }) { ch ->
+                items(results.channels, key = { it.uid }) { ch ->
                     val current = vm.programmesFor(ch).nowAndNext(now).first
                     FocusTile(onClick = { vm.play(ch, from = Screen.Search) }, onLongClick = { vm.toggleFavourite(ch) }, corner = 12.dp, focusedScale = 1.05f) {
                         Row(Modifier.width(250.dp).padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             ChannelLogo(ch, 40)
                             Column(Modifier.weight(1f)) {
                                 Text(ch.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                Text(current?.title ?: "Channel ${ch.num}", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = LocalContentColor.current.copy(alpha = 0.7f))
+                                Text((ch.subId?.let { vm.subscriptionName(it) + " · " } ?: "") + (current?.title ?: "Channel ${ch.num}"), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, color = LocalContentColor.current.copy(alpha = 0.7f))
                             }
                             if (vm.isFavourite(ch)) Text("★", fontSize = 14.sp, color = Palette.Accent)
                         }
@@ -144,14 +144,14 @@ fun SearchScreen(vm: AppViewModel) {
             }
 
             if (results.movies.isNotEmpty()) SearchSection("Movies", results.movies.size) {
-                items(results.movies, key = { it.id }) { m ->
-                    SearchPoster(m.name, m.poster) { lib.showMovie(m); vm.navigate(Screen.MovieDetails) }
+                items(results.movies, key = { (it.subId ?: "") + it.id }) { m ->
+                    SearchPoster(m.name, m.poster, m.subId?.let { vm.subscriptionName(it) }) { lib.showMovie(m); vm.navigate(Screen.MovieDetails) }
                 }
             }
 
             if (results.series.isNotEmpty()) SearchSection("Series", results.series.size) {
-                items(results.series, key = { it.id }) { s ->
-                    SearchPoster(s.name, s.cover) { lib.showSeries(s); vm.navigate(Screen.SeriesDetails) }
+                items(results.series, key = { (it.subId ?: "") + it.id }) { s ->
+                    SearchPoster(s.name, s.cover, s.subId?.let { vm.subscriptionName(it) }) { lib.showSeries(s); vm.navigate(Screen.SeriesDetails) }
                 }
             }
         }
@@ -167,7 +167,7 @@ private fun SearchSection(title: String, count: Int, content: androidx.compose.f
 }
 
 @Composable
-private fun SearchPoster(title: String, image: String?, onClick: () -> Unit) {
+private fun SearchPoster(title: String, image: String?, from: String?, onClick: () -> Unit) {
     Column(Modifier.width(112.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         FocusTile(onClick = onClick, corner = 10.dp, focusedScale = 1.06f, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
             Box(Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)).background(Palette.Card)) {
@@ -176,5 +176,6 @@ private fun SearchPoster(title: String, image: String?, onClick: () -> Unit) {
             }
         }
         Text(title, color = Palette.Text, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (from != null) Text(from, color = Palette.Accent, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

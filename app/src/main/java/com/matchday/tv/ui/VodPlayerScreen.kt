@@ -87,7 +87,7 @@ fun VodPlayerScreen(vm: AppViewModel) {
 
     val player = remember {
         val http = DefaultHttpDataSource.Factory()
-            .setUserAgent(com.matchday.tv.data.UserAgents.current)
+            .setUserAgent(lib.playing?.userAgent ?: com.matchday.tv.data.UserAgents.current)
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(15_000)
             .setReadTimeoutMs(30_000)

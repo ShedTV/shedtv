@@ -45,6 +45,9 @@ class TimeshiftBuffer(private val root: File) {
 
     @Volatile private var session: Session? = null
 
+    /** User agent for the recording download (the subscription being watched). */
+    @Volatile var userAgent: String = UserAgents.current
+
     /** Where the next open should start: a wall-clock time, or -1 for the live edge. */
     @Volatile var openTarget = -1L
 
@@ -76,7 +79,7 @@ class TimeshiftBuffer(private val root: File) {
         dir.mkdirs()
         val s = Session(url, dir, budget().coerceAtLeast(MIN_BYTES))
         session = s
-        val agent = UserAgents.current
+        val agent = userAgent
         Thread({ download(s, agent) }, "shedtv-timeshift").apply { isDaemon = true }.start()
         return s
     }

@@ -8,6 +8,8 @@ data class VodItem(
     val categoryId: String?,
     val ext: String,
     val added: Long,
+    /** Set for films from another subscription. */
+    val subId: String? = null,
 )
 
 data class SeriesItem(
@@ -20,6 +22,8 @@ data class SeriesItem(
     val rating: String?,
     val categoryId: String?,
     val updated: Long,
+    /** Set for series from another subscription. */
+    val subId: String? = null,
 )
 
 data class MovieInfo(
@@ -68,6 +72,8 @@ data class Playable(
     val startAt: Long,
     /** Episodes to play after this one. */
     val upNext: List<Playable> = emptyList(),
+    /** User agent of the subscription this comes from. */
+    val userAgent: String? = null,
 )
 
 data class WatchEntry(

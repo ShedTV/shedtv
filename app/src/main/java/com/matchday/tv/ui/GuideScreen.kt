@@ -301,7 +301,7 @@ fun GuideScreen(vm: AppViewModel) {
                         }
                         LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.fillMaxSize()) {
                             itemsIndexed(channels, key = { _, c -> c.streamId }) { index, ch ->
-                                val shortEpg = vm.epg[ch.streamId]
+                                val shortEpg = vm.epg[ch.uid]
                                 val visible = remember(ch.streamId, vm.guide, shortEpg, windowStart, earliest) {
                                     rowBlocks(ch).filter { it.end > windowStart && it.start < windowEnd }
                                 }

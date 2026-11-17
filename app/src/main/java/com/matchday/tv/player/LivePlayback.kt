@@ -39,12 +39,13 @@ class LivePlayback(private val context: Context) {
         private set
 
     private var created = false
+    @Volatile private var agent: String = UserAgents.current
     val player: ExoPlayer by lazy {
         created = true
         val factory = DataSource.Factory {
             if (useTimeshift.get()) TimeshiftDataSource(timeshift)
             else DefaultHttpDataSource.Factory()
-                .setUserAgent(UserAgents.current)
+                .setUserAgent(agent)
                 .setAllowCrossProtocolRedirects(true)
                 .setConnectTimeoutMs(10_000)
                 .setReadTimeoutMs(15_000)
@@ -67,7 +68,9 @@ class LivePlayback(private val context: Context) {
     val isRecording: Boolean get() = useTimeshift.get()
 
     /** Start a stream (closing whatever was playing). Returns true if live rewind is recording it. */
-    fun start(url: String, streamId: String, rewind: Boolean, muted: Boolean): Boolean {
+    fun start(url: String, streamId: String, rewind: Boolean, muted: Boolean, userAgent: String = UserAgents.current): Boolean {
+        agent = userAgent
+        timeshift.userAgent = userAgent
         val buffered = rewind && !url.endsWith(".m3u8") && timeshift.canBuffer()
         if (!buffered) timeshift.stop()
         useTimeshift.set(buffered)

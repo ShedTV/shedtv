@@ -27,7 +27,9 @@ const val CAT_ALL_VOD = "__allvod"
 class Library(
     app: Application,
     private val scope: CoroutineScope,
-    private val client: () -> XtreamClient?,
+    /** Client for a subscription id; null means the active subscription. */
+    private val clientFor: (String?) -> XtreamClient?,
+    private val agentFor: (String?) -> String?,
     subscriptionId: () -> String,
 ) {
     private val history = WatchHistory(app, subscriptionId)
@@ -80,7 +82,7 @@ class Library(
     }
 
     fun loadMovies() {
-        val c = client() ?: return
+        val c = clientFor(null) ?: return
         if (movies.isNotEmpty() || moviesJob?.isActive == true) return
         moviesJob = scope.launch {
             moviesStatus = "Loading movies…"
@@ -96,7 +98,7 @@ class Library(
     }
 
     fun loadSeries() {
-        val c = client() ?: return
+        val c = clientFor(null) ?: return
         if (series.isNotEmpty() || seriesJob?.isActive == true) return
         seriesJob = scope.launch {
             seriesStatus = "Loading series…"
@@ -149,7 +151,7 @@ class Library(
         openMovie = item
         movieInfo = null
         detailStatus = "Loading…"
-        val c = client() ?: return
+        val c = clientFor(item.subId) ?: return
         scope.launch {
             try {
                 movieInfo = c.vodInfo(item.id)
@@ -164,14 +166,14 @@ class Library(
         openSeries = item
         seriesInfo = null
         detailStatus = "Loading episodes…"
-        val c = client() ?: return
+        val c = clientFor(item.subId) ?: return
         scope.launch {
             try {
                 val info = c.seriesInfo(item.id)
                 seriesInfo = info
                 // Open on the season of the last episode watched, else the first.
-                val last = history().firstOrNull { it.kind == "episode" && it.parentId == item.id }
-                val lastSeason = last?.let { h -> info.seasons.entries.firstOrNull { (_, eps) -> eps.any { it.id == h.id } }?.key }
+                val last = history().firstOrNull { it.kind == "episode" && it.parentId == historyId(item.subId, item.id) }
+                val lastSeason = last?.let { h -> info.seasons.entries.firstOrNull { (_, eps) -> eps.any { historyId(item.subId, it.id) == h.id } }?.key }
                 selectedSeason = lastSeason ?: info.seasons.keys.firstOrNull() ?: 1
                 detailStatus = if (info.seasons.isEmpty()) "No episodes available." else null
             } catch (e: Exception) {
@@ -185,27 +187,32 @@ class Library(
         return history.get(kind, id)
     }
 
+    /** Resume-point id: films from another subscription are kept apart from the active one's. */
+    fun historyId(subId: String?, id: String) = if (subId == null) id else "$subId:$id"
+
     fun moviePlayable(item: VodItem, fromStart: Boolean): Playable? {
-        val c = client() ?: return null
+        val c = clientFor(item.subId) ?: return null
         val ext = movieInfo?.takeIf { openMovie?.id == item.id }?.ext?.ifBlank { null } ?: item.ext
+        val hid = historyId(item.subId, item.id)
         return Playable(
-            kind = "movie", id = item.id, title = item.name,
+            kind = "movie", id = hid, title = item.name,
             subtitle = movieInfo?.year.orEmpty(),
             url = c.movieUrl(item.id, ext), image = item.poster, parentId = null,
-            startAt = if (fromStart) 0 else history.get("movie", item.id)?.position ?: 0,
+            startAt = if (fromStart) 0 else history.get("movie", hid)?.position ?: 0,
+            userAgent = agentFor(item.subId),
         )
     }
 
     fun episodePlayable(show: SeriesItem, episodes: List<Episode>, index: Int, fromStart: Boolean): Playable? {
-        val c = client() ?: return null
+        val c = clientFor(show.subId) ?: return null
         fun make(ep: Episode, start: Long) = Playable(
-            kind = "episode", id = ep.id,
+            kind = "episode", id = historyId(show.subId, ep.id), userAgent = agentFor(show.subId),
             title = show.name,
             subtitle = "S${ep.season} E${ep.num}" + (ep.title.takeIf { it.isNotBlank() && !it.contains(show.name, true) }?.let { " · $it" } ?: ""),
-            url = c.episodeUrl(ep.id, ep.ext), image = show.cover, parentId = show.id, startAt = start,
+            url = c.episodeUrl(ep.id, ep.ext), image = show.cover, parentId = historyId(show.subId, show.id), startAt = start,
         )
         val ep = episodes.getOrNull(index) ?: return null
-        val start = if (fromStart) 0 else history.get("episode", ep.id)?.position ?: 0
+        val start = if (fromStart) 0 else history.get("episode", historyId(show.subId, ep.id))?.position ?: 0
         return make(ep, start).copy(upNext = episodes.drop(index + 1).map { make(it, 0) })
     }
 

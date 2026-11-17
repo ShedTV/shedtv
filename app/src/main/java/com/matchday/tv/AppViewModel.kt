@@ -107,7 +107,67 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val updater = Updater(app, viewModelScope)
 
     /** Movies and series. */
-    val library = Library(app, viewModelScope, { client }, { activeSubscription?.id ?: "none" })
+    val library = Library(app, viewModelScope, { sub -> clientFor(sub) }, { sub -> agentFor(sub) }, { activeSubscription?.id ?: "none" })
+
+    // ---------- Other subscriptions, as backups ----------
+
+    /** What we know about a non-active subscription. */
+    data class BackupSub(
+        val channels: List<Channel> = emptyList(),
+        val movies: List<com.matchday.tv.data.VodItem> = emptyList(),
+        val series: List<com.matchday.tv.data.SeriesItem> = emptyList(),
+        val status: String = "Loading…",
+    )
+
+    val backups = mutableStateMapOf<String, BackupSub>()
+    private val backupClients = HashMap<String, XtreamClient>()
+    private var backupJob: Job? = null
+
+    var useBackups by mutableStateOf(prefs.useBackups)
+        private set
+
+    fun turnBackups(on: Boolean) {
+        useBackups = on
+        prefs.useBackups = on
+        if (on) loadBackups()
+    }
+
+    fun subscriptionName(subId: String?): String =
+        subscriptions.firstOrNull { it.id == subId }?.name ?: activeSubscription?.name.orEmpty()
+
+    fun clientFor(subId: String?): XtreamClient? = if (subId == null) client else backupClients[subId]
+
+    fun agentFor(subId: String?): String =
+        subscriptions.firstOrNull { it.id == (subId ?: activeSubscription?.id) }?.userAgent ?: UserAgents.current
+
+    /** Quietly load every other subscription's channels, films and series. */
+    fun loadBackups() {
+        if (!useBackups) return
+        val activeId = activeSubscription?.id
+        val others = subscriptions.filter { it.id != activeId }
+        backups.keys.filter { k -> others.none { it.id == k } }.forEach { backups.remove(it); backupClients.remove(it) }
+        if (others.isEmpty()) return
+        backupJob?.cancel()
+        backupJob = viewModelScope.launch {
+            for (sub in others) {
+                val c = XtreamClient(sub.credentials, sub.userAgent)
+                backupClients[sub.id] = c
+                backups[sub.id] = (backups[sub.id] ?: BackupSub()).copy(status = "Loading…")
+                try {
+                    val chans = c.liveStreams().map { it.copy(subId = sub.id) }
+                    backups[sub.id] = BackupSub(channels = chans, status = "Backup ready · ${chans.size} channels")
+                    val films = runCatching { c.vodStreams().map { it.copy(subId = sub.id) } }.getOrDefault(emptyList())
+                    val shows = runCatching { c.series().map { it.copy(subId = sub.id) } }.getOrDefault(emptyList())
+                    backups[sub.id] = backups[sub.id]!!.copy(movies = films, series = shows)
+                } catch (e: Exception) {
+                    backups[sub.id] = BackupSub(status = "Couldn't load (${e.message ?: "error"})")
+                }
+            }
+        }
+    }
+
+    private fun backupChannels(): List<Channel> =
+        if (!useBackups) emptyList() else backups.values.flatMap { it.channels }
 
     /** Where Back from the player returns to. */
     private var returnScreen: Screen = Screen.Live
@@ -144,7 +204,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         if (!mergeQualities) return list
         val favs = favourites
         val groups = LinkedHashMap<String, MutableList<Channel>>()
-        for (c in list) groups.getOrPut(com.matchday.tv.data.ChannelNames.key(c.name).ifEmpty { c.streamId }) { ArrayList() }.add(c)
+        for (c in list) groups.getOrPut((c.subId ?: "") + "|" + com.matchday.tv.data.ChannelNames.key(c.name).ifEmpty { c.streamId }) { ArrayList() }.add(c)
         return groups.values.map { g ->
             val best = g.maxBy { com.matchday.tv.data.SportMatcher.channelScore(it, favs) }
             best.copy(name = com.matchday.tv.data.ChannelNames.clean(best.name), num = g.minOf { it.num })
@@ -235,11 +295,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun preview(channel: Channel) {
         if (!previewEnabled) return
         val current = live.currentStreamId
-        if (current != null && sourcesFor(channel).any { it.streamId == current }) return
+        if (current != null && sourcesFor(channel).any { it.uid == current }) return
         val best = sourcesFor(channel).first()
         val url = streamUrl(best) ?: return
         // Record from the start when live rewind is on, so pressing OK keeps rewind with no reconnect.
-        live.start(url, best.streamId, rewind = liveRewind, muted = true)
+        live.start(url, best.uid, rewind = liveRewind, muted = true, userAgent = agentFor(best.subId))
     }
 
     /** Live TV only runs where it can be seen: full screen, or a preview on Live TV / the guide. */
@@ -290,28 +350,44 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
         val programmeHits = progs.sortedBy { it.second.start }
             .distinctBy { it.second.title.lowercase() + "|" + it.second.start / 60_000 }.take(40)
+        // Other subscriptions: tagged results after the active one's.
+        val extra = if (useBackups) backups.values.toList() else emptyList()
+        val otherChannels = merge(extra.flatMap { it.channels }).filter { hit(it.name) }
+            .sortedByDescending { com.matchday.tv.data.SportMatcher.channelScore(it, favs) }.take(20)
         SearchResults(
-            channels = channelHits,
+            channels = channelHits + otherChannels,
             programmes = programmeHits,
-            movies = library.movies.filter { hit(it.name) }.take(40),
-            series = library.series.filter { hit(it.name) }.take(40),
+            movies = library.movies.filter { hit(it.name) }.take(40) + extra.flatMap { it.movies }.filter { hit(it.name) }.take(20),
+            series = library.series.filter { hit(it.name) }.take(40) + extra.flatMap { it.series }.filter { hit(it.name) }.take(20),
         )
     }
 
     /** This channel plus other streams carrying the same thing (same guide id), best first. */
     fun sourcesFor(channel: Channel): List<Channel> {
-        val original = allChannels.firstOrNull { it.streamId == channel.streamId } ?: channel
+        val original = (if (channel.subId == null) allChannels.firstOrNull { it.streamId == channel.streamId } else null) ?: channel
         val versions = if (mergeQualities) {
             val k = com.matchday.tv.data.ChannelNames.key(original.name)
             allChannels.filter { com.matchday.tv.data.ChannelNames.key(it.name) == k }
         } else emptyList()
         val id = original.epgId?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
         val sameGuide = if (id == null) emptyList() else allChannels.filter { it.epgId?.trim()?.lowercase() == id && !it.name.contains("+1") }
-        val others = (versions + sameGuide)
-            .filter { it.streamId != original.streamId }
-            .distinctBy { it.streamId }
+        val own = (if (original.subId == null) versions + sameGuide else emptyList())
+            .filter { it.uid != original.uid }
+            .distinctBy { it.uid }
             .sortedByDescending { com.matchday.tv.data.SportMatcher.channelScore(it, favourites) }
-        return (listOf(original) + others).take(8)
+        // Then the same channel on your other subscriptions (and the active one, for a channel found on a backup).
+        val key = com.matchday.tv.data.ChannelNames.key(original.name)
+        val pool = backupChannels() + (if (original.subId != null) allChannels else emptyList())
+        val elsewhere = pool
+            .filter { it.uid != original.uid && it.subId != original.subId || (original.subId != null && it.subId == null) }
+            .filter { c ->
+                c.uid != original.uid && !c.name.contains("+1") &&
+                    (com.matchday.tv.data.ChannelNames.key(c.name) == key ||
+                        (id != null && c.epgId?.trim()?.lowercase() == id))
+            }
+            .distinctBy { it.uid }
+            .sortedWith(compareBy<Channel>({ if (it.subId == null) 0 else 1 }, { -com.matchday.tv.data.SportMatcher.channelScore(it, favourites) }))
+        return (listOf(original) + own.take(5) + elsewhere.take(4)).take(10)
     }
 
     /** Go straight to a channel from anywhere (kick-off alerts). */
@@ -358,6 +434,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun removeSubscription(sub: Subscription) {
         subscriptions = subscriptions.filterNot { it.id == sub.id }
         prefs.subscriptions = subscriptions
+        backups.remove(sub.id)
+        backupClients.remove(sub.id)
         if (sub.id == activeSubscription?.id) {
             clearSession()
             activeSubscription = null
@@ -382,6 +460,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private fun persist(sub: Subscription) {
         subscriptions = if (subscriptions.any { it.id == sub.id }) subscriptions.map { if (it.id == sub.id) sub else it } else subscriptions + sub
         prefs.subscriptions = subscriptions
+        if (sub.id != activeSubscription?.id) loadBackups()
     }
 
     private fun clearSession() {
@@ -443,6 +522,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 selectedCategoryId = if (favourites.isNotEmpty()) CATEGORY_FAVOURITES else CATEGORY_ALL
                 screen = Screen.Sport
                 loadGuide()
+                loadBackups()
             } catch (e: Exception) {
                 error = "${sub.name}: " + (e.message ?: "couldn't connect to the provider.")
                 UserAgents.current = previous?.userAgent ?: UserAgents.DEFAULT
@@ -481,13 +561,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun loadEpg(channel: Channel, force: Boolean = false) {
         if (!force && programmesFor(channel).isNotEmpty()) return
-        val id = channel.streamId
+        val id = channel.uid
         if (!force && (epg.containsKey(id) || id in epgLoading)) return
-        val c = client ?: return
+        val c = clientFor(channel.subId) ?: return
         epgLoading += id
         viewModelScope.launch {
             try {
-                epg[id] = c.shortEpg(id)
+                epg[id] = c.shortEpg(channel.streamId)
             } catch (_: Exception) {
                 // No guide data for this channel; leave it empty.
             } finally {
@@ -516,7 +596,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Programmes for a channel: the full guide if we have it, else the short EPG. */
     fun programmesFor(channel: Channel): List<EpgEntry> {
         val full = channel.epgId?.trim()?.lowercase()?.let { guide[it] }
-        return if (!full.isNullOrEmpty()) full else epg[channel.streamId].orEmpty()
+        return if (!full.isNullOrEmpty()) full else epg[channel.uid].orEmpty()
     }
 
     fun loadGuide(force: Boolean = false) {
@@ -546,9 +626,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun play(channel: Channel, from: Screen = Screen.Live) {
         returnScreen = from
         // From the Sport Hub the channel may not be in the current category: zap through everything.
-        val list = visibleChannels.takeIf { l -> l.any { it.streamId == channel.streamId } } ?: shownChannels.takeIf { l -> l.any { it.streamId == channel.streamId } } ?: allChannels
+        val list = visibleChannels.takeIf { l -> l.any { it.uid == channel.uid } }
+            ?: shownChannels.takeIf { l -> l.any { it.uid == channel.uid } }
+            ?: allChannels.takeIf { l -> l.any { it.uid == channel.uid } }
+            ?: listOf(channel) // a channel from another subscription
         playlist = list
-        playingIndex = list.indexOfFirst { it.streamId == channel.streamId }.coerceAtLeast(0)
+        playingIndex = list.indexOfFirst { it.uid == channel.uid }.coerceAtLeast(0)
         previousIndex = null
         lastFocusedChannelId = channel.streamId
         screen = Screen.Player
@@ -578,7 +661,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         lastFocusedChannelId = currentChannel?.streamId
     }
 
-    fun streamUrl(channel: Channel): String? = client?.streamUrl(channel, streamFormat)
+    fun streamUrl(channel: Channel): String? {
+        val fmt = subscriptions.firstOrNull { it.id == channel.subId }?.streamFormat ?: streamFormat
+        return clientFor(channel.subId)?.streamUrl(channel, fmt)
+    }
 
     fun closePlayer() {
         screen = returnScreen

@@ -88,6 +88,10 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("mergeQualities", false)
         set(value) = sp.edit().putBoolean("mergeQualities", value).apply()
 
+    var useBackups: Boolean
+        get() = sp.getBoolean("useBackups", true)
+        set(value) = sp.edit().putBoolean("useBackups", value).apply()
+
     var preview: Boolean
         get() = sp.getBoolean("preview", true)
         set(value) = sp.edit().putBoolean("preview", value).apply()

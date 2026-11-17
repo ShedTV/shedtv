@@ -76,7 +76,7 @@ fun SettingsScreen(vm: AppViewModel) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(sub.name, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                            Text("${sub.host}  ·  ${sub.username}", fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text("${sub.host}  ·  ${sub.username}" + (if (!isActive && vm.useBackups) vm.backups[sub.id]?.status?.let { "  ·  $it" }.orEmpty() else ""), fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         if (isActive) Text("IN USE", fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                     }
@@ -89,6 +89,15 @@ fun SettingsScreen(vm: AppViewModel) {
                     Chip(if (confirmRemove == active.id) "Press again to remove" else "Remove ${active.name}", danger = confirmRemove == active.id) {
                         if (confirmRemove == active.id) { confirmRemove = null; vm.removeSubscription(active) } else confirmRemove = active.id
                     }
+                }
+            }
+
+            if (vm.subscriptions.size > 1) {
+                Spacer(Modifier.height(2.dp))
+                Heading("Use other subscriptions as backup", "If a channel fails, try the same channel on your other subscriptions. Search also covers them.")
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Chip("On", selected = vm.useBackups) { vm.turnBackups(true) }
+                    Chip("Off", selected = !vm.useBackups) { vm.turnBackups(false) }
                 }
             }
 

@@ -25,7 +25,12 @@ data class Channel(
     val categoryId: String?,
     val epgId: String?,
     val hasArchive: Boolean,
-)
+    /** Set for channels from another (backup) subscription; null for the active one. */
+    val subId: String? = null,
+) {
+    /** Unique across subscriptions (two providers can use the same stream number). */
+    val uid: String get() = (subId ?: "") + ":" + streamId
+}
 
 data class EpgEntry(
     val title: String,
