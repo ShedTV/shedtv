@@ -161,7 +161,7 @@ fun SettingsScreen(vm: AppViewModel) {
                 Chip("Off", selected = !vm.previewEnabled) { vm.turnPreview(false) }
             }
             Spacer(Modifier.height(2.dp))
-            Heading("Stay at 50Hz after watching", "Stops the TV blanking when you go back to the menus. Needs Match Original Frame Rate on in Fire TV settings.")
+            Heading("Stay at 50Hz", "Switches the TV to 50Hz once when ShedTV opens, so going full screen and back doesn't blank. 60fps channels still switch. Needs Match Original Frame Rate on in Fire TV settings.")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Chip("On", selected = vm.stay50Hz) { vm.setStay50HzEnabled(true) }
                 Chip("Off", selected = !vm.stay50Hz) { vm.setStay50HzEnabled(false) }

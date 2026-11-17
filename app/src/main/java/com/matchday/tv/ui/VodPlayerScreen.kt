@@ -139,7 +139,7 @@ fun VodPlayerScreen(vm: AppViewModel) {
             save()
             player.removeListener(listener)
             player.release()
-            FrameRateMatcher.reset(activity)
+            if (vm.stay50Hz) FrameRateMatcher.match(activity, 50f) else FrameRateMatcher.reset(activity)
         }
     }
 

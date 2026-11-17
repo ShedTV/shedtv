@@ -154,7 +154,7 @@ fun PlayerScreen(vm: AppViewModel) {
             player.removeListener(listener)
             // Hand back to the preview (muted) or let the app close the connection.
             live.setMuted(true)
-            if (!vm.stay50Hz) FrameRateMatcher.reset(activity)
+            if (vm.stay50Hz) FrameRateMatcher.match(activity, 50f) else FrameRateMatcher.reset(activity)
         }
     }
 

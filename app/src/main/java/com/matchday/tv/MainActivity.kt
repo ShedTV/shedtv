@@ -121,6 +121,12 @@ private fun App(vm: AppViewModel = viewModel()) {
 
 @Composable
 private fun Screens(vm: AppViewModel) {
+    // "Stay at 50Hz": switch once, as the app opens (or the setting is turned on), not when going full screen.
+    val activity = androidx.compose.ui.platform.LocalContext.current as android.app.Activity
+    LaunchedEffect(vm.stay50Hz) {
+        if (vm.stay50Hz) com.matchday.tv.player.FrameRateMatcher.match(activity, 50f)
+        else if (vm.screen != Screen.Player && vm.screen != Screen.VodPlayer) com.matchday.tv.player.FrameRateMatcher.reset(activity)
+    }
     LaunchedEffect(vm.screen, vm.previewEnabled) { vm.onScreenShown(vm.screen) }
     val animate = vm.animations
     AnimatedContent(
