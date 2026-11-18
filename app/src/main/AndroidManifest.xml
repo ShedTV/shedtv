@@ -50,6 +50,7 @@
             android:foregroundServiceType="dataSync" />
 
         <meta-data android:name="updateRepo" android:value="${updateRepo}" />
+        <meta-data android:name="updateSite" android:value="${updateSite}" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

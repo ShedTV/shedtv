@@ -24,7 +24,8 @@ android {
         versionCode = buildNumber
         versionName = "0.1.$buildNumber"
         // In-app updates come from the repo that built this app, so forks update from themselves.
-        manifestPlaceholders["updateRepo"] = System.getenv("GITHUB_REPOSITORY") ?: "blackandamber2020-jpg/matchday"
+        manifestPlaceholders["updateRepo"] = System.getenv("GITHUB_REPOSITORY") ?: "ShedTV/shedtv"
+        manifestPlaceholders["updateSite"] = System.getenv("UPDATE_SITE") ?: ""
         if (isOfficial) {
             manifestPlaceholders["appLabel"] = "ShedTV"
         } else {

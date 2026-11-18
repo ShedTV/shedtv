@@ -11,6 +11,8 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      official: ${{ steps.key.outputs.official }}
     steps:
       - uses: actions/checkout@v5
 
@@ -22,10 +24,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Load the official signing key (main repo only)
+        id: key
         env:
           KEYSTORE_B64: ${{ secrets.MATCHDAY_KEYSTORE_B64 }}
-        if: env.KEYSTORE_B64 != ''
-        run: echo "$KEYSTORE_B64" | base64 -d > app/release.keystore
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > app/release.keystore
+            echo "official=true" >> "$GITHUB_OUTPUT"
+            echo "UPDATE_SITE=https://shedtv.app" >> "$GITHUB_ENV"
+          fi
 
       - name: Build
         env:
@@ -61,3 +68,35 @@ jobs:
             --title "ShedTV build ${{ github.run_number }}" \
             --notes "Automatic build of ${{ github.sha }}" \
             --latest
+
+  # The website (shedtv.app): homepage, install link and the update file the app checks.
+  site:
+    needs: build
+    if: needs.build.outputs.official == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: shedtv-apk
+      - name: Assemble the site
+        run: |
+          mkdir -p public
+          cp -r site/. public/
+          cp shedtv.apk public/shedtv.apk
+          cp shedtv.apk "public/shedtv-${{ github.run_number }}.apk"
+          printf '{"versionCode":%s,"date":"%s","apk":"https://shedtv.app/shedtv-%s.apk"}\n' \
+            "${{ github.run_number }}" "$(date -u '+%-d %b %Y')" "${{ github.run_number }}" > public/version.json
+          touch public/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -38,7 +38,12 @@ class Updater(private val app: Application, private val scope: CoroutineScope) {
 
     private val repo: String = runCatching {
         app.packageManager.getApplicationInfo(app.packageName, PackageManager.GET_META_DATA).metaData?.getString("updateRepo")
-    }.getOrNull()?.takeIf { it.contains('/') } ?: "blackandamber2020-jpg/matchday"
+    }.getOrNull()?.takeIf { it.contains('/') } ?: "ShedTV/shedtv"
+
+    /** Official builds check the website first (shedtv.app), then GitHub. Forks use GitHub only. */
+    private val site: String? = runCatching {
+        app.packageManager.getApplicationInfo(app.packageName, PackageManager.GET_META_DATA).metaData?.getString("updateSite")
+    }.getOrNull()?.takeIf { it.startsWith("https://") }
 
     var latestBuild by mutableStateOf<Int?>(null)
         private set
@@ -76,6 +81,24 @@ class Updater(private val app: Application, private val scope: CoroutineScope) {
     }
 
     private fun fetchLatest(): Pair<Int, Pair<String, String?>> {
+        site?.let { s -> runCatching { return fromSite(s) } }
+        return fromGitHub()
+    }
+
+    /** version.json on the website: {"versionCode": 43, "apk": "https://…/shedtv-43.apk"}. */
+    private fun fromSite(site: String): Pair<Int, Pair<String, String?>> {
+        val request = Request.Builder().url("$site/version.json?t=" + System.currentTimeMillis()).header("User-Agent", USER_AGENT).build()
+        val body = XtreamClient.http.newCall(request).execute().use {
+            if (!it.isSuccessful) throw IOException("HTTP ${it.code}")
+            it.body?.string().orEmpty()
+        }
+        val root = Json.parseToJsonElement(body) as? JsonObject ?: throw IOException("unexpected reply")
+        val build = (root["versionCode"] as? JsonPrimitive)?.contentOrNull?.toIntOrNull() ?: throw IOException("no build number")
+        val apk = (root["apk"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.startsWith("https://") } ?: throw IOException("no download")
+        return build to (apk to null)
+    }
+
+    private fun fromGitHub(): Pair<Int, Pair<String, String?>> {
         val request = Request.Builder()
             .url("https://api.github.com/repos/$repo/releases/latest")
             .header("User-Agent", USER_AGENT)
