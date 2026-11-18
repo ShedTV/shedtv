@@ -1,0 +1,44 @@
+name: Website
+
+# Republishes shedtv.app when only the website changes, using the latest app build
+# (so editing the site doesn't push an app update to everyone).
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', '.github/workflows/site.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fetch the latest app build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download latest -p shedtv.apk
+          echo "BUILD=$(gh release view latest --json name -q .name | grep -o '[0-9]\+$')" >> "$GITHUB_ENV"
+          echo "DATE=$(gh release view latest --json publishedAt -q .publishedAt | cut -c1-10 | xargs -I{} date -u -d {} '+%-d %b %Y')" >> "$GITHUB_ENV"
+      - name: Assemble the site
+        run: |
+          mkdir -p public
+          cp -r site/. public/
+          cp shedtv.apk public/shedtv.apk
+          cp shedtv.apk "public/shedtv-$BUILD.apk"
+          printf '{"versionCode":%s,"date":"%s","apk":"https://shedtv.app/shedtv-%s.apk"}\n' "$BUILD" "$DATE" "$BUILD" > public/version.json
+          touch public/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - id: deploy
+        uses: actions/deploy-pages@v4

@@ -22,15 +22,15 @@
   h2 { font-size:38px; text-transform:uppercase; margin-bottom:10px; }
   h3 { font-size:22px; margin-bottom:6px; }
   .lead { color:var(--soft); font-size:18px; max-width:640px; }
-  nav { display:flex; align-items:center; justify-content:space-between; padding:20px 0; }
-  nav .brand { display:flex; align-items:center; gap:12px; font-family:"Barlow Condensed"; font-size:26px; font-weight:700; color:var(--text); }
-  nav .brand img { width:40px; height:auto; }
+  nav { display:flex; align-items:center; justify-content:flex-end; padding:20px 0; min-height:24px; }
+  .lockup { display:flex; align-items:center; gap:22px; margin-bottom:34px; }
+  .lockup img { width:150px; height:auto; filter:drop-shadow(0 18px 50px rgba(68,196,112,.28)); }
+  .lockup span { font-family:"Barlow Condensed"; font-weight:700; font-size:72px; letter-spacing:.01em; color:var(--text); line-height:1; }
   nav .links a { color:var(--soft); margin-left:24px; font-weight:500; }
   nav .links a:hover { color:var(--text); }
-  .hero { padding:56px 0 72px; display:grid; grid-template-columns:1.2fr .8fr; gap:40px; align-items:center; }
+  .hero { padding:24px 0 72px; max-width:760px; }
   .hero h1 { font-size:68px; text-transform:uppercase; margin-bottom:16px; }
   .hero h1 span { color:var(--accent); }
-  .hero .logo { justify-self:center; width:min(260px,70%); filter:drop-shadow(0 20px 60px rgba(68,196,112,.25)); }
   .cta { display:flex; flex-wrap:wrap; gap:14px; margin-top:28px; align-items:center; }
   .btn { display:inline-block; padding:13px 24px; border-radius:12px; font-weight:600; }
   .btn.primary { background:var(--accent); color:#04130A; }
@@ -57,9 +57,11 @@
   details p { color:var(--soft); margin-top:10px; }
   footer { border-top:1px solid var(--line); padding:32px 0 48px; color:var(--muted); font-size:14px; }
   @media (max-width:820px) {
-    .hero { grid-template-columns:1fr; padding-top:24px; text-align:left; }
+    .hero { padding-top:0; }
     .hero h1 { font-size:48px; }
-    .hero .logo { order:-1; width:150px; justify-self:start; }
+    .lockup { gap:16px; margin-bottom:26px; }
+    .lockup img { width:104px; }
+    .lockup span { font-size:52px; }
     .grid { grid-template-columns:1fr; }
     nav .links { display:none; }
   }
@@ -68,11 +70,11 @@
 <body>
 <div class="wrap">
   <nav>
-    <a class="brand" href="#"><img src="logo.png" alt="">ShedTV</a>
     <div class="links"><a href="#features">Features</a><a href="#install">Install</a><a href="#faq">FAQ</a></div>
   </nav>
 
   <header class="hero">
+    <div class="lockup"><img src="logo.png" alt=""><span>ShedTV</span></div>
     <div>
       <h1>TV that keeps <span>playing</span></h1>
       <p class="lead">A better player for the TV you already have. ShedTV is free for Fire TV, Android TV and Android: sign in with the TV service you already use and get a fast guide, catch-up, recording and downloads that cope when your connection doesn't.</p>
@@ -82,7 +84,6 @@
       </div>
       <p class="version" id="version" style="margin-top:14px"></p>
     </div>
-    <img class="logo" src="logo.png" alt="ShedTV logo">
   </header>
 </div>
 
@@ -96,7 +97,7 @@
       <div class="card"><div class="icon">⟲</div><h3>Catch-up &amp; rewind</h3><p>Watch from the start of something already on, go back days on channels that keep an archive, or rewind live TV.</p></div>
       <div class="card"><div class="icon">●</div><h3>Recording that keeps going</h3><p>If a stream glitches, ShedTV reconnects, tries another version or a backup subscription, and carries on instead of giving up.</p></div>
       <div class="card"><div class="icon">⬇</div><h3>Downloads</h3><p>Save films and series to watch offline, on the box, a USB drive or your phone. It opens straight to them with no internet.</p></div>
-      <div class="card"><div class="icon">🔁</div><h3>Backups &amp; updates</h3><p>Several subscriptions with automatic fallback, subtitles, search across everything, and updates from inside the app.</p></div>
+      <div class="card"><div class="icon">🔁</div><h3>Backups &amp; updates</h3><p>Xtream logins or M3U playlists, several subscriptions with automatic fallback, subtitles, search across everything, an optional on-screen clock, and updates from inside the app.</p></div>
     </div>
   </div>
 </section>
