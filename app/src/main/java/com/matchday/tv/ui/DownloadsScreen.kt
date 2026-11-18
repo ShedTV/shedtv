@@ -50,7 +50,7 @@ fun DownloadsScreen(vm: AppViewModel) {
     val first = remember { FocusRequester() }
     var confirm by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { delay(120); runCatching { first.requestFocus() } }
-    if (!vm.offline) BackHandler { vm.navigate(Screen.Sport) }
+    if (!vm.offline) BackHandler { vm.goHome() }
     // Episodes grouped under their series, newest first.
     val list = DownloadManager.items.sortedWith(
         compareByDescending<DownloadItem> { d -> DownloadManager.items.filter { it.parentId == d.parentId && d.parentId != null }.maxOfOrNull { it.added } ?: d.added }

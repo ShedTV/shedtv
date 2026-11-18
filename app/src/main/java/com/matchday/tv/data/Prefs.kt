@@ -94,6 +94,57 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("mergeQualities", false)
         set(value) = sp.edit().putBoolean("mergeQualities", value).apply()
 
+    var menuHidden: Set<String>
+        get() = sp.getStringSet("menuHidden", emptySet())?.toSet() ?: emptySet()
+        set(value) = sp.edit().putStringSet("menuHidden", value).apply()
+
+    var menuOrder: List<String>
+        get() = sp.getString("menuOrder", "")?.split(',')?.filter { it.isNotBlank() } ?: emptyList()
+        set(value) = sp.edit().putString("menuOrder", value.joinToString(",")).apply()
+
+    /** home, live, guide or last. */
+    var startScreen: String
+        get() = sp.getString("startScreen", "home") ?: "home"
+        set(value) = sp.edit().putString("startScreen", value).apply()
+
+    var lastScreen: String?
+        get() = sp.getString("lastScreen", null)
+        set(value) = sp.edit().putString("lastScreen", value).apply()
+
+    /** 1.0 normal, 1.15 large, 1.3 extra large. */
+    var textScale: Float
+        get() = sp.getFloat("textScale", 1f)
+        set(value) = sp.edit().putFloat("textScale", value).apply()
+
+    var highContrast: Boolean
+        get() = sp.getBoolean("highContrast", false)
+        set(value) = sp.edit().putBoolean("highContrast", value).apply()
+
+    var accent: Long
+        get() = sp.getLong("accent", 0xFF44C470)
+        set(value) = sp.edit().putLong("accent", value).apply()
+
+    /** compact, normal or large. */
+    var guideRows: String
+        get() = sp.getString("guideRows", "normal") ?: "normal"
+        set(value) = sp.edit().putString("guideRows", value).apply()
+
+    /** "play": OK goes full screen; "preview": first OK previews, second goes full screen. */
+    var okAction: String
+        get() = sp.getString("okAction", "play") ?: "play"
+        set(value) = sp.edit().putString("okAction", value).apply()
+
+    var pin: String?
+        get() = sp.getString("pin", null)
+        set(value) = sp.edit().putString("pin", value).apply()
+
+    fun locked(subId: String): Set<String> = sp.getStringSet("locked_$subId", emptySet())?.toSet() ?: emptySet()
+    fun setLocked(subId: String, ids: Set<String>) = sp.edit().putStringSet("locked_$subId", ids).apply()
+
+    var lockAdult: Boolean
+        get() = sp.getBoolean("lockAdult", false)
+        set(value) = sp.edit().putBoolean("lockAdult", value).apply()
+
     /** "off", "menus" or "always". */
     var clock: String
         get() = sp.getString("clock", "off") ?: "off"

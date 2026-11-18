@@ -76,7 +76,7 @@ fun SearchScreen(vm: AppViewModel) {
         delay(250)
         results = vm.search(vm.searchQuery)
     }
-    BackHandler { vm.navigate(Screen.Sport) }
+    BackHandler { vm.goHome() }
 
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, Screen.Search)

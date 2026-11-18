@@ -4,6 +4,11 @@ package com.matchday.tv.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.nativeKeyCode
+import androidx.compose.ui.input.key.key
+import androidx.compose.foundation.layout.size
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Arrangement
@@ -52,18 +57,20 @@ private enum class SettingsTab(val label: String, val icon: String, val blurb: S
     Tv("TV & guide", "▦", "Channel lists, the guide and the preview window"),
     Playback("Playback", "▶", "Rewind, subtitles and picture"),
     Saving("Recording & downloads", "●", "Recording live TV and saving films for offline"),
-    Display("Display", "◐", "Clock and animations"),
+    Menu("Menu & start screen", "☰", "Which sections you see, their order, and where ShedTV opens"),
+    Display("Display", "◐", "Text size, contrast, colour, clock and animations"),
+    Lock("Parental lock", "🔒", "A PIN for the categories you choose"),
     About("About & updates", "ⓘ", "Version, updates and licences"),
 }
 
 @Composable
 fun SettingsScreen(vm: AppViewModel) {
-    var tab by rememberSaveable { mutableStateOf(SettingsTab.Subs) }
+    val tab = SettingsTab.entries.getOrElse(vm.settingsTab) { SettingsTab.Subs }
     val tabFocus = remember { FocusRequester() }
     var inContent by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { delay(100); runCatching { tabFocus.requestFocus() } }
     BackHandler {
-        if (inContent) runCatching { tabFocus.requestFocus() } else vm.navigate(Screen.Sport)
+        if (inContent) runCatching { tabFocus.requestFocus() } else vm.goHome()
     }
 
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
@@ -75,11 +82,11 @@ fun SettingsScreen(vm: AppViewModel) {
             SettingsTab.entries.forEach { t ->
                 val sel = t == tab
                 FocusTile(
-                    onClick = { tab = t; },
+                    onClick = { vm.settingsTab = t.ordinal },
                     selected = sel, corner = 10.dp, focusedScale = 1.03f,
                     modifier = Modifier.fillMaxWidth()
                         .then(if (sel) Modifier.focusRequester(tabFocus) else Modifier)
-                        .onFocusChanged { if (it.isFocused) tab = t },
+                        .onFocusChanged { if (it.isFocused) vm.settingsTab = t.ordinal },
                 ) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(t.icon, fontSize = 16.sp, modifier = Modifier.width(28.dp))
@@ -107,7 +114,9 @@ fun SettingsScreen(vm: AppViewModel) {
                 SettingsTab.Tv -> TvSettings(vm)
                 SettingsTab.Playback -> PlaybackSettings(vm)
                 SettingsTab.Saving -> SavingSettings(vm)
+                SettingsTab.Menu -> MenuSettings(vm)
                 SettingsTab.Display -> DisplaySettings(vm)
+                SettingsTab.Lock -> LockSettings(vm)
                 SettingsTab.About -> AboutSettings(vm)
             }
         }
@@ -254,6 +263,12 @@ private fun TvSettings(vm: AppViewModel) {
     ) { OnOff(vm.mergeQualities) { vm.setMergeQualitiesEnabled(it) } }
 
     Setting(
+        "What OK does in Live TV",
+        "Full screen: OK on a channel goes straight to full screen. Preview first: the first OK plays it in the preview window so you can check what's on, and a second OK goes full screen.",
+        "Preview first needs the preview window (below) turned on.",
+    ) { OnOff(vm.okAction == "play", "Full screen", "Preview first") { vm.chooseOkAction(if (it) "play" else "preview") } }
+
+    Setting(
         "Preview window",
         "Plays the highlighted channel, muted, in a small window in Live TV and the guide. Press OK and it carries on full screen without restarting.",
         "Uses your connection while you browse, and on a Fire Stick moving between channels can feel a little slower. On one-connection subscriptions, downloads pause while it plays.",
@@ -342,7 +357,141 @@ private fun SavingSettings(vm: AppViewModel) {
 }
 
 @Composable
+private fun MenuSettings(vm: AppViewModel) {
+    Setting(
+        "Sections in the menu",
+        "Choose which sections appear in the menu on the left, and their order. OK shows or hides a section; ◀◀ and ▶▶ (or channel up and down) move it. Hidden sections keep everything in them: show them again and it's all still there. Settings always stays at the bottom.",
+        "No effect on speed. Downloads and Recordings only appear once you have downloads or have turned recording on.",
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            vm.orderedMenu().forEach { id ->
+                val shown = id !in vm.menuHidden
+                FocusTile(
+                    onClick = { vm.setMenuShown(id, !shown) }, selected = shown, corner = 10.dp, focusedScale = 1.02f,
+                    modifier = Modifier.width(420.dp).onPreviewKeyEvent { e ->
+                        if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        when (e.key.nativeKeyCode) {
+                            android.view.KeyEvent.KEYCODE_MEDIA_REWIND, android.view.KeyEvent.KEYCODE_CHANNEL_UP -> { vm.moveMenu(id, -1); true }
+                            android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD, android.view.KeyEvent.KEYCODE_CHANNEL_DOWN -> { vm.moveMenu(id, 1); true }
+                            else -> false
+                        }
+                    },
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(menuLabel(id), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text(if (shown) "Shown" else "Hidden", fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = 0.7f))
+                    }
+                }
+            }
+            Chip("Reset to the usual menu") { vm.resetMenu() }
+        }
+    }
+    Setting(
+        "Open ShedTV on",
+        "The screen you see when ShedTV starts. Back from anywhere also brings you here, and Back on this screen closes ShedTV.",
+        "No effect on speed.",
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Chip("Home", selected = vm.startScreen == "home") { vm.chooseStart("home") }
+            Chip("Live TV", selected = vm.startScreen == "live") { vm.chooseStart("live") }
+            Chip("Guide", selected = vm.startScreen == "guide") { vm.chooseStart("guide") }
+            Chip("Wherever I was last", selected = vm.startScreen == "last") { vm.chooseStart("last") }
+        }
+    }
+    Setting(
+        "Watchlist",
+        "Things ShedTV looks for in your guide (teams, shows, events) to show on Home, with a reminder just before they start.",
+    ) { Chip("Edit watchlist (${vm.watchlist.items.size})") { vm.navigate(Screen.Watchlist) } }
+}
+
+@Composable
+private fun LockSettings(vm: AppViewModel) {
+    Setting(
+        "PIN",
+        if (vm.pinSet) "A PIN is set. Locked categories are hidden from Live TV, the guide, search and Home until someone enters it; once entered they stay open until ShedTV is closed or you lock them again."
+        else "Set a 4-digit PIN, then choose which categories need it. Locked categories are hidden from every list until the PIN is entered.",
+        "No effect on speed. If you forget the PIN, clearing ShedTV's data (in your device's app settings) removes it, along with your other settings.",
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (!vm.pinSet) Chip("Set a PIN") { vm.setNewPin() }
+            else {
+                Chip("Change PIN") { vm.askPin("Enter your current PIN") { vm.setNewPin() } }
+                if (vm.unlocked) Chip("Lock again now") { vm.lockAgain() }
+                Chip("Turn the lock off") { vm.removePin() }
+            }
+        }
+    }
+    if (vm.pinSet) {
+        Setting(
+            "Lock adult categories automatically",
+            "Locks any category whose name suggests adult content (for example Adult, XXX or 18+), including new ones your provider adds later.",
+        ) { OnOff(vm.lockAdult) { vm.turnLockAdult(it) } }
+
+        Setting(
+            "Locked categories",
+            "OK locks or unlocks a category. You'll be asked for the PIN first if the lock is closed.",
+        ) {
+            val cats = vm.allCategories
+            androidx.compose.foundation.lazy.LazyColumn(Modifier.height(320.dp).width(520.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                items(cats.size) { i ->
+                    val c = cats[i]
+                    val locked = vm.categoryLockedSetting(c.id)
+                    FocusTile(onClick = { vm.askPin("Enter your PIN to change locks") { vm.toggleCategoryLock(c.id) } }, selected = locked, corner = 8.dp, focusedScale = 1.02f, modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp)) {
+                            Text((if (locked) "🔒  " else "      ") + categoryLabel(c.name), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun DisplaySettings(vm: AppViewModel) {
+    Setting(
+        "Text size",
+        "Makes all the writing in ShedTV bigger, for easier reading from the sofa.",
+        "No effect on speed. At the larger sizes some long names are shortened with \"…\" to fit.",
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Chip("Normal", selected = vm.textScale < 1.05f) { vm.chooseTextScale(1f) }
+            Chip("Large", selected = vm.textScale in 1.05f..1.2f) { vm.chooseTextScale(1.15f) }
+            Chip("Extra large", selected = vm.textScale > 1.2f) { vm.chooseTextScale(1.3f) }
+        }
+    }
+    Setting(
+        "High contrast",
+        "Pure black backgrounds, brighter text and stronger outlines, which helps with low vision or a bright room.",
+        "No effect on speed.",
+    ) { OnOff(vm.highContrast) { vm.turnHighContrast(it) } }
+    Setting(
+        "Highlight colour",
+        "The colour used for the highlight, buttons and progress bars. Yellow and blue are easiest to tell apart with colour blindness.",
+        "No effect on speed.",
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Palette.accents.forEach { (name, argb) ->
+                FocusTile(onClick = { vm.chooseAccent(argb) }, selected = vm.accent == argb, corner = 10.dp, focusedScale = 1.06f) {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        androidx.compose.foundation.layout.Box(Modifier.size(16.dp).background(Color(argb), RoundedCornerShape(8.dp)))
+                        Text(name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+    }
+    Setting(
+        "TV guide rows",
+        "Compact fits more channels on screen at once; large makes each row taller and easier to read.",
+        "No effect on speed.",
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Chip("Compact", selected = vm.guideRows == "compact") { vm.chooseGuideRows("compact") }
+            Chip("Normal", selected = vm.guideRows == "normal") { vm.chooseGuideRows("normal") }
+            Chip("Large", selected = vm.guideRows == "large") { vm.chooseGuideRows("large") }
+        }
+    }
     Setting(
         "Clock",
         "A small clock in the top-right corner of the screen. Choose whether it also shows while you're watching.",

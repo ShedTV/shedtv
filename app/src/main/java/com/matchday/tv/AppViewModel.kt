@@ -26,8 +26,8 @@ import kotlinx.coroutines.withContext
 sealed interface Screen {
     data object Login : Screen
     data object Loading : Screen
-    data object Sport : Screen
-    data object Teams : Screen
+    data object Home : Screen
+    data object Watchlist : Screen
     data object Live : Screen
     data object Guide : Screen
     data object Movies : Screen
@@ -106,7 +106,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val epgRepository = EpgRepository(app)
 
     /** Followed teams and fixtures from the guide. */
-    val sport = SportHub(app, viewModelScope)
+    val watchlist = Watchlist(app, viewModelScope)
 
     /** In-app updates. */
     val updater = Updater(app, viewModelScope)
@@ -127,6 +127,91 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     val backups = mutableStateMapOf<String, BackupSub>()
     private val backupClients = HashMap<String, XtreamClient>()
     private var backupJob: Job? = null
+
+    // ---------- Display ----------
+    var textScale by mutableStateOf(prefs.textScale)
+        private set
+    var highContrast by mutableStateOf(prefs.highContrast)
+        private set
+    var accent by mutableStateOf(prefs.accent)
+        private set
+    var guideRows by mutableStateOf(prefs.guideRows)
+        private set
+    var okAction by mutableStateOf(prefs.okAction)
+        private set
+    /** Remembered here so Settings stays on the same section when the look changes. */
+    var settingsTab by mutableStateOf(0)
+
+    init {
+        com.matchday.tv.ui.Palette.highContrast = prefs.highContrast
+        com.matchday.tv.ui.Palette.accentArgb = prefs.accent
+    }
+
+    fun chooseTextScale(v: Float) { textScale = v; prefs.textScale = v }
+    fun turnHighContrast(on: Boolean) { com.matchday.tv.ui.Palette.highContrast = on; highContrast = on; prefs.highContrast = on }
+    fun chooseAccent(v: Long) { com.matchday.tv.ui.Palette.accentArgb = v; accent = v; prefs.accent = v }
+    fun chooseGuideRows(v: String) { guideRows = v; prefs.guideRows = v }
+    fun chooseOkAction(v: String) { okAction = v; prefs.okAction = v }
+
+    // ---------- Parental lock ----------
+    var pinSet by mutableStateOf(prefs.pin != null)
+        private set
+    var lockAdult by mutableStateOf(prefs.lockAdult)
+        private set
+    var lockedCategories by mutableStateOf(activeSubscription?.let { prefs.locked(it.id) } ?: emptySet())
+        private set
+    /** Unlocked with the PIN until ShedTV is closed. */
+    var unlocked by mutableStateOf(false)
+        private set
+
+    /** A PIN prompt on screen: what it's for, and what to do once the right PIN is entered. */
+    data class PinRequest(val title: String, val newPin: Boolean = false, val onDone: (String) -> Unit)
+    var pinRequest by mutableStateOf<PinRequest?>(null)
+
+    private val adultWords = Regex("(?i)(\\badult|xxx|\\b18\\+|\\bporn|\\bfor adults)")
+    fun isAdultName(name: String) = adultWords.containsMatchIn(name)
+
+    /** Is this category behind the PIN right now? */
+    fun isLocked(categoryId: String): Boolean {
+        if (!pinSet || unlocked) return false
+        if (categoryId in lockedCategories) return true
+        return lockAdult && categories.firstOrNull { it.id == categoryId }?.let { isAdultName(it.name) } == true
+    }
+
+    fun categoryLockedSetting(categoryId: String): Boolean =
+        categoryId in lockedCategories || (lockAdult && categories.firstOrNull { it.id == categoryId }?.let { isAdultName(it.name) } == true)
+
+    fun toggleCategoryLock(categoryId: String) {
+        val sub = activeSubscription ?: return
+        if (!pinSet) { flash = "Set a PIN first: Settings → Parental lock."; return }
+        lockedCategories = if (categoryId in lockedCategories) lockedCategories - categoryId else lockedCategories + categoryId
+        prefs.setLocked(sub.id, lockedCategories)
+    }
+
+    fun turnLockAdult(on: Boolean) { lockAdult = on; prefs.lockAdult = on }
+
+    fun askPin(title: String, then: () -> Unit) {
+        if (!pinSet || unlocked) { then(); return }
+        pinRequest = PinRequest(title) { entered ->
+            if (entered == prefs.pin) { unlocked = true; pinRequest = null; then() } else flash = "Wrong PIN."
+        }
+    }
+
+    fun setNewPin() {
+        pinRequest = PinRequest("Choose a 4-digit PIN", newPin = true) { first ->
+            pinRequest = PinRequest("Enter it again to confirm", newPin = true) { again ->
+                pinRequest = null
+                if (again == first) { prefs.pin = first; pinSet = true; unlocked = false; flash = "PIN set. Locked categories now need it." }
+                else flash = "The PINs didn't match. Try again."
+            }
+        }
+    }
+
+    fun removePin() {
+        askPin("Enter your PIN to turn the lock off") { prefs.pin = null; pinSet = false; flash = "Parental lock is off." }
+    }
+
+    fun lockAgain() { unlocked = false; flash = "Locked again." }
 
     // ---------- On-screen clock ----------
     var clockMode by mutableStateOf(prefs.clock)
@@ -444,8 +529,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Every channel not in a hidden category. Favourites always show. */
     val shownChannels: List<Channel> by derivedStateOf {
         val hidden = hiddenCategories
-        if (hidden.isEmpty()) allChannels
+        val base = if (hidden.isEmpty()) allChannels
         else allChannels.filter { it.categoryId !in hidden || it.streamId in favourites }
+        // Locked categories stay out of every list, search and Home until the PIN is entered.
+        if (!pinSet || unlocked || (lockedCategories.isEmpty() && !lockAdult)) base
+        else base.filter { !isLocked(it.categoryId) }
     }
 
     /** Show one entry per channel instead of every UHD/FHD/HD/SD version. */
@@ -558,7 +646,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 kotlinx.coroutines.delay(60_000)
                 if (client == null) continue
                 if (guideLoadedAt > 0 && System.currentTimeMillis() - guideLoadedAt > 6 * 60 * 60 * 1000L) loadGuide(force = true)
-                runCatching { sport.refresh(allChannels, guide, favourites) }
+                runCatching { watchlist.refresh(allChannels, guide, favourites) }
             }
         }
     }
@@ -592,6 +680,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Muted preview of a channel; keeps going if it's already playing this channel or one of its versions. */
+    fun isPreviewing(channel: Channel): Boolean {
+        val current = live.currentStreamId ?: return false
+        return sourcesFor(channel).any { it.uid == current }
+    }
+
     fun preview(channel: Channel) {
         if (!previewEnabled) return
         val current = live.currentStreamId
@@ -811,6 +904,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 activeSubscription = sub
                 prefs.activeId = sub.id
                 favourites = prefs.favourites(sub.id)
+                lockedCategories = prefs.locked(sub.id)
                 hiddenCategories = prefs.hiddenCategories(sub.id)
                 categoryOrder = prefs.categoryOrder(sub.id)
                 editingSubscription = null
@@ -825,7 +919,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 val ids = chans.mapTo(HashSet()) { it.streamId }
                 favourites = favourites.filterTo(HashSet()) { it in ids }
                 selectedCategoryId = CATEGORY_ALL
-                screen = Screen.Sport
+                screen = homeBase()
                 loadGuide()
                 loadBackups()
             } catch (e: Exception) {
@@ -849,7 +943,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun selectCategory(id: String) {
+    /** [fromFocus]: just moving over a category; a locked one waits for OK and the PIN. */
+    fun selectCategory(id: String, fromFocus: Boolean = false) {
+        if (isLocked(id)) {
+            if (!fromFocus) askPin("Enter your PIN to open this category") { selectedCategoryId = id }
+            return
+        }
         selectedCategoryId = id
     }
 
@@ -890,6 +989,92 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun navigate(to: Screen) {
         screen = to
+        if (to in mainScreens) prefs.lastScreen = mainScreens.getValue(to)
+    }
+
+    // ---------- Home, watchlist and the menu ----------
+    fun refreshWatchlist() {
+        viewModelScope.launch { runCatching { watchlist.refresh(allChannels, guide, favourites) } }
+    }
+
+    @Suppress("unused") private val _lockDoc = "Channels in locked categories stay out of lists, search and Home until unlocked."
+    fun favouriteChannels(): List<Channel> = shownChannels.filter { it.streamId in favourites }.take(30)
+
+    /** Films and episodes you've started on the active subscription, newest first. */
+    fun continueWatching(): List<com.matchday.tv.data.WatchEntry> {
+        @Suppress("UNUSED_EXPRESSION") library.historyVersion
+        return library.history().filter { it.duration <= 0 || it.position < it.duration - 120_000 }.take(15)
+    }
+
+    fun resume(e: com.matchday.tv.data.WatchEntry) {
+        if (e.kind == "movie") {
+            val item = library.movies.firstOrNull { library.historyId(it.subId, it.id) == e.id }
+            if (item != null) { library.showMovie(item); returnScreen = screen; navigate(Screen.MovieDetails) }
+            else { library.loadMovies(); flash = "Loading films… try again in a moment." }
+        } else {
+            val show = library.series.firstOrNull { library.historyId(it.subId, it.id) == e.parentId }
+            if (show != null) { library.showSeries(show); returnScreen = screen; navigate(Screen.SeriesDetails) }
+            else { library.loadSeries(); flash = "Loading series… try again in a moment." }
+        }
+    }
+
+    /** The menu sections that can be shown, hidden and reordered. */
+    val mainScreens: Map<Screen, String> = linkedMapOf(
+        Screen.Home to "home", Screen.Live to "live", Screen.Guide to "guide", Screen.Movies to "movies",
+        Screen.Series to "series", Screen.Search to "search", Screen.Downloads to "downloads", Screen.Recordings to "recordings",
+    )
+    var menuHidden by mutableStateOf(prefs.menuHidden)
+        private set
+    var menuOrder by mutableStateOf(prefs.menuOrder)
+        private set
+    var startScreen by mutableStateOf(prefs.startScreen)
+        private set
+
+    fun setMenuShown(id: String, shown: Boolean) {
+        val next = if (shown) menuHidden - id else menuHidden + id
+        // Always keep at least one section.
+        if (mainScreens.values.count { it !in next && it != "downloads" && it != "recordings" } == 0) { flash = "Keep at least one section in the menu."; return }
+        menuHidden = next
+        prefs.menuHidden = next
+    }
+
+    fun orderedMenu(): List<String> {
+        val all = mainScreens.values.toList()
+        return (menuOrder.filter { it in all } + all.filter { it !in menuOrder })
+    }
+
+    fun moveMenu(id: String, by: Int) {
+        val list = orderedMenu().toMutableList()
+        val i = list.indexOf(id)
+        if (i < 0) return
+        val j = (i + by).coerceIn(0, list.lastIndex)
+        list.add(j, list.removeAt(i))
+        menuOrder = list
+        prefs.menuOrder = list
+    }
+
+    fun resetMenu() {
+        menuOrder = emptyList(); prefs.menuOrder = emptyList()
+        menuHidden = emptySet(); prefs.menuHidden = emptySet()
+    }
+
+    fun chooseStart(id: String) { startScreen = id; prefs.startScreen = id }
+
+    private fun screenFor(id: String): Screen? = mainScreens.entries.firstOrNull { it.value == id }?.key
+
+    /** Where ShedTV opens, and where Back ends up. */
+    fun homeBase(): Screen {
+        val id = if (startScreen == "last") prefs.lastScreen ?: "home" else startScreen
+        val s = screenFor(id)
+        if (s != null && id !in menuHidden && s != Screen.Downloads && s != Screen.Recordings) return s
+        return orderedMenu().firstOrNull { it !in menuHidden && it != "downloads" && it != "recordings" }?.let { screenFor(it) } ?: Screen.Home
+    }
+
+    /** Set when Back is pressed on the start screen: the activity closes. */
+    var exitRequested by mutableStateOf(false)
+
+    fun goHome() {
+        if (screen == homeBase()) exitRequested = true else screen = homeBase()
     }
 
     /** Step through categories (Menu button in the guide). */
@@ -1008,6 +1193,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     withContext(Dispatchers.Main) { guideStatus = msg }
                 }
                 guide = data
+                refreshWatchlist()
                 guideStatus = if (data.isEmpty()) "Your provider's guide had no listings for these channels." else null
             } catch (e: Exception) {
                 guideStatus = "Couldn't load the TV guide (${e.message ?: "unknown error"})."

@@ -47,15 +47,25 @@ import java.util.Date
 import java.util.Locale
 
 object Palette {
-    val Background = Color(0xFF07090C)
-    val Card = Color(0xFF10151B)
-    val CardRaised = Color(0xFF16202A)
-    val Text = Color(0xFFF2F5F8)
-    val TextSoft = Color(0xFFC9D3DE)
-    val TextMuted = Color(0xFF8C9AAB)
-    val Accent = Color(0xFF44C470)
+    /** Set from Settings → Display; the UI is rebuilt when these change. */
+    @Volatile var highContrast = false
+    @Volatile var accentArgb: Long = 0xFF44C470
+
+    val Background get() = if (highContrast) Color(0xFF000000) else Color(0xFF07090C)
+    val Card get() = if (highContrast) Color(0xFF1B232C) else Color(0xFF10151B)
+    val CardRaised get() = if (highContrast) Color(0xFF26313D) else Color(0xFF16202A)
+    val Text get() = if (highContrast) Color(0xFFFFFFFF) else Color(0xFFF2F5F8)
+    val TextSoft get() = if (highContrast) Color(0xFFF2F5F8) else Color(0xFFC9D3DE)
+    val TextMuted get() = if (highContrast) Color(0xFFD3DCE5) else Color(0xFF8C9AAB)
+    val Accent get() = Color(accentArgb)
     val Live = Color(0xFFFF3B3B)
-    val Divider = Color(0x1FFFFFFF)
+    val Divider get() = if (highContrast) Color(0x66FFFFFF) else Color(0x1FFFFFFF)
+
+    /** Accent colours to choose from (yellow and blue are easiest to tell apart with colour blindness). */
+    val accents = listOf(
+        "Green" to 0xFF44C470, "Blue" to 0xFF3D9BFF, "Yellow" to 0xFFFFD23F,
+        "Orange" to 0xFFFF9F2E, "Pink" to 0xFFFF5FA2, "Purple" to 0xFFA77BFF,
+    )
 }
 
 /** Body text: Inter. */

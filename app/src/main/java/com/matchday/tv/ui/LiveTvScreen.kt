@@ -80,7 +80,7 @@ fun LiveTvScreen(vm: AppViewModel) {
     val selectedCat = remember { FocusRequester() }
     androidx.activity.compose.BackHandler {
         if (inChannels) { if (runCatching { selectedCat.requestFocus() }.isFailure) runCatching { firstCategory.requestFocus() } }
-        else vm.navigate(com.matchday.tv.Screen.Sport)
+        else vm.goHome()
     }
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
     NavRail(vm, com.matchday.tv.Screen.Live)
@@ -113,14 +113,14 @@ fun LiveTvScreen(vm: AppViewModel) {
                             .fillMaxWidth()
                             .then(if (index == 0) Modifier.focusRequester(firstCategory) else Modifier)
                             .then(if (selected) Modifier.focusRequester(selectedCat) else Modifier)
-                            .onFocusChanged { if (it.isFocused) vm.selectCategory(cat.id) },
+                            .onFocusChanged { if (it.isFocused) vm.selectCategory(cat.id, fromFocus = true) },
                     ) {
                         Row(
                             Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 7.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
-                                categoryLabel(cat.name),
+                                (if (vm.categoryLockedSetting(cat.id) && vm.pinSet) "🔒 " else "") + categoryLabel(cat.name),
                                 fontSize = 14.sp,
                                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                                 maxLines = 1,
@@ -173,7 +173,10 @@ fun LiveTvScreen(vm: AppViewModel) {
                                     vm.lastFocusedChannelId = ch.streamId
                                 }
                             },
-                        onClick = { vm.play(ch) },
+                        onClick = {
+                            // "Preview first": the first OK shows it in the preview, the second goes full screen.
+                            if (vm.okAction == "preview" && vm.previewEnabled && !vm.isPreviewing(ch)) vm.preview(ch) else vm.play(ch)
+                        },
                         onLongClick = { vm.toggleFavourite(ch) },
                     )
                 }

@@ -44,6 +44,7 @@ object Icons {
     const val SERIES = "M3 6h18v12H3zM7 21h10"
     const val DOWNLOAD = "M11 4h2v9l3.5-3.5 1.4 1.4L12 16.8l-5.9-5.9 1.4-1.4L11 13zM5 18h14v2H5z"
     const val REC = "M12 4a8 8 0 1 0 0 16a8 8 0 1 0 0-16zM12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z"
+    const val HOME = "M4 11l8-7 8 7v9h-5v-6h-6v6H4z"
     const val SEARCH = "M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14zM20 20l-4-4"
     const val SETTINGS = "M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"
 }
@@ -62,15 +63,20 @@ fun StrokeIcon(path: String, size: Dp = 24.dp, color: Color = LocalContentColor.
 
 private data class RailItem(val label: String, val icon: String, val screen: Screen)
 
-private val railItems = listOf(
-    RailItem("Sport", Icons.SPORT, Screen.Sport),
-    RailItem("Live TV", Icons.LIVE, Screen.Live),
-    RailItem("Guide", Icons.GUIDE, Screen.Guide),
-    RailItem("Movies", Icons.MOVIES, Screen.Movies),
-    RailItem("Series", Icons.SERIES, Screen.Series),
-    RailItem("Search", Icons.SEARCH, Screen.Search),
-    RailItem("Settings", Icons.SETTINGS, Screen.Settings),
+private val railById = mapOf(
+    "home" to RailItem("Home", Icons.HOME, Screen.Home),
+    "live" to RailItem("Live TV", Icons.LIVE, Screen.Live),
+    "guide" to RailItem("Guide", Icons.GUIDE, Screen.Guide),
+    "movies" to RailItem("Movies", Icons.MOVIES, Screen.Movies),
+    "series" to RailItem("Series", Icons.SERIES, Screen.Series),
+    "search" to RailItem("Search", Icons.SEARCH, Screen.Search),
+    "downloads" to RailItem("Downloads", Icons.DOWNLOAD, Screen.Downloads),
+    "recordings" to RailItem("Recordings", Icons.REC, Screen.Recordings),
 )
+private val settingsItem = RailItem("Settings", Icons.SETTINGS, Screen.Settings)
+
+/** Names for the menu editor in Settings. */
+fun menuLabel(id: String): String = railById[id]?.label ?: id
 
 @Composable
 fun NavRail(vm: AppViewModel, current: Screen) {
@@ -85,10 +91,13 @@ fun NavRail(vm: AppViewModel, current: Screen) {
     ) {
         ShedMark(38.dp)
         Spacer(Modifier.height(6.dp))
-        (railItems.filter { vm.activeSubscription?.playlist != true || (it.screen != Screen.Movies && it.screen != Screen.Series) }.let { it.take(it.size - 2) } +
-            (if (com.matchday.tv.download.DownloadManager.items.isNotEmpty()) listOf(RailItem("Downloads", Icons.DOWNLOAD, Screen.Downloads)) else emptyList()) +
-            (if (vm.recordingEnabled) listOf(RailItem("Recordings", Icons.REC, Screen.Recordings)) else emptyList()) +
-            railItems.takeLast(2)).forEach { item ->
+        val playlist = vm.activeSubscription?.playlist == true
+        val hasDownloads = com.matchday.tv.download.DownloadManager.items.isNotEmpty()
+        (vm.orderedMenu().filter { id ->
+            id !in vm.menuHidden &&
+                !(playlist && (id == "movies" || id == "series")) &&
+                (id != "downloads" || hasDownloads) && (id != "recordings" || vm.recordingEnabled)
+        }.mapNotNull { railById[it] } + settingsItem).forEach { item ->
             val selected = item.screen == current
             FocusTile(
                 onClick = { vm.navigate(item.screen) },
@@ -113,7 +122,7 @@ fun NavRail(vm: AppViewModel, current: Screen) {
 /** Holding page for sections that arrive in a later build. */
 @Composable
 fun ComingSoonScreen(vm: AppViewModel, current: Screen, title: String, body: String) {
-    androidx.activity.compose.BackHandler { vm.navigate(Screen.Sport) }
+    androidx.activity.compose.BackHandler { vm.goHome() }
     androidx.compose.foundation.layout.Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, current)
         Column(

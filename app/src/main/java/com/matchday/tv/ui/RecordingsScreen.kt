@@ -89,7 +89,7 @@ fun RecordingsScreen(vm: AppViewModel) {
     val first = remember { FocusRequester() }
     var confirm by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { RecorderManager.reload(); delay(120); runCatching { first.requestFocus() } }
-    BackHandler { vm.navigate(Screen.Sport) }
+    BackHandler { vm.goHome() }
     val list = RecorderManager.recordings
 
     Row(Modifier.fillMaxSize().background(Palette.Background)) {

@@ -63,7 +63,8 @@ import kotlinx.coroutines.launch
 private const val MIN = 60_000L
 private const val HALF_HOUR = 30 * MIN
 private const val WINDOW = 120 * MIN
-private val ROW_HEIGHT = 42.dp
+/** Set from Settings → Display (guide rows). */
+private var ROW_HEIGHT = 42.dp
 private val CHANNEL_COL = 200.dp
 
 private fun floorHalfHour(t: Long) = t - (t % HALF_HOUR)
@@ -87,6 +88,7 @@ private fun blocksFor(programmes: List<EpgEntry>, from: Long, to: Long): List<Bl
 
 @Composable
 fun GuideScreen(vm: AppViewModel) {
+    ROW_HEIGHT = when (vm.guideRows) { "compact" -> 34.dp; "large" -> 54.dp; else -> 42.dp }
     val now = rememberNow()
     val channels = vm.visibleChannels
     // Catch-up channels let the guide go back as far as their archive.
@@ -151,7 +153,7 @@ fun GuideScreen(vm: AppViewModel) {
                 windowStart = floorHalfHour(System.currentTimeMillis()); anchor = System.currentTimeMillis()
             }
             !catsOpen -> catsOpen = true
-            else -> vm.navigate(Screen.Sport)
+            else -> vm.goHome()
         }
     }
     fun lookBack() {
@@ -215,7 +217,7 @@ fun GuideScreen(vm: AppViewModel) {
                         selected = isSel, corner = 8.dp, focusedScale = 1.03f,
                         modifier = Modifier.fillMaxWidth()
                             .then(if (isSel) Modifier.focusRequester(catFocus) else Modifier)
-                            .onFocusChanged { if (it.isFocused) vm.selectCategory(c.id) }
+                            .onFocusChanged { if (it.isFocused) vm.selectCategory(c.id, fromFocus = true) }
                             .onPreviewKeyEvent { e ->
                                 if (e.type == KeyEventType.KeyDown && e.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_RIGHT) {
                                     runCatching { gridFocus.requestFocus() }; true
@@ -223,7 +225,7 @@ fun GuideScreen(vm: AppViewModel) {
                             },
                     ) {
                         Text(
-                            categoryLabel(c.name), fontSize = 13.sp, fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
+                            (if (vm.categoryLockedSetting(c.id) && vm.pinSet) "🔒 " else "") + categoryLabel(c.name), fontSize = 13.sp, fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                         )

@@ -111,7 +111,7 @@ private fun BrowseLayout(
         delay(80)
         runCatching { firstCategory.requestFocus() }
     }
-    BackHandler { vm.navigate(Screen.Sport) }
+    BackHandler { vm.goHome() }
 
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, current)
