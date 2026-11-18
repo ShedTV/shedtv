@@ -59,7 +59,16 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
         if (status != null && !status.equals("Active", ignoreCase = true)) {
             throw IOException("Account status: $status")
         }
-        return AccountInfo(status, user.str("exp_date"), user.str("max_connections"))
+        val server = root["server_info"] as? JsonObject
+        // Work out the server's clock offset from its local time and its UTC timestamp.
+        val offset = runCatching {
+            val local = server?.str("time_now") ?: return@runCatching null
+            val ts = server!!.str("timestamp_now")?.toLongOrNull() ?: return@runCatching null
+            val f = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+            val raw = f.parse(local)!!.time - ts * 1000
+            Math.round(raw / 900_000.0) * 900_000L // nearest quarter hour
+        }.getOrNull()
+        return AccountInfo(status, user.str("exp_date"), user.str("max_connections"), offset, server?.str("timezone"))
     }
 
     suspend fun liveCategories(): List<Category> = categories("get_live_categories")
@@ -86,6 +95,7 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
                 categoryId = o["category_id"],
                 epgId = o["epg_channel_id"],
                 hasArchive = o["tv_archive"]?.toIntOrNull() == 1,
+                archiveDays = o["tv_archive_duration"]?.toIntOrNull() ?: 0,
             )
         }.distinctBy { it.streamId }.sortedBy { it.num }
 
@@ -105,6 +115,28 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
             )
         }
     }
+
+    /** Past programmes for a catch-up channel (the full listing the provider keeps). */
+    suspend fun archiveEpg(streamId: String): List<EpgEntry> {
+        val root = get(apiUrl("get_simple_data_table", "&stream_id=$streamId")) as? JsonObject ?: return emptyList()
+        val listings = root["epg_listings"] as? JsonArray ?: return emptyList()
+        val now = System.currentTimeMillis()
+        return listings.mapNotNull { el ->
+            val o = el as? JsonObject ?: return@mapNotNull null
+            val start = (o.str("start_timestamp")?.toLongOrNull() ?: return@mapNotNull null) * 1000
+            val end = (o.str("stop_timestamp")?.toLongOrNull() ?: return@mapNotNull null) * 1000
+            if (start >= now) return@mapNotNull null
+            EpgEntry(title = decode(o.str("title")).ifBlank { "No information" }, description = decode(o.str("description")), start = start, end = end)
+        }.distinctBy { it.start }.sortedBy { it.start }
+    }
+
+    /**
+     * Catch-up address: [start] is the server's local time as yyyy-MM-dd:HH-mm. Providers use one of
+     * two forms, so [style] picks which.
+     */
+    fun catchupUrl(streamId: String, start: String, durationMin: Int, style: Int): String =
+        if (style == 0) "${creds.server}/timeshift/${encPath(creds.username)}/${encPath(creds.password)}/$durationMin/$start/$streamId.ts"
+        else "${creds.server}/streaming/timeshift.php?username=${encPath(creds.username)}&password=${encPath(creds.password)}&stream=$streamId&start=$start&duration=$durationMin"
 
     suspend fun vodStreams(): List<VodItem> =
         streamList(apiUrl("get_vod_streams"), VOD_KEYS) { o, _ ->
@@ -271,7 +303,7 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
     }
 
     companion object {
-        private val LIVE_KEYS = setOf("stream_id", "num", "name", "stream_icon", "category_id", "epg_channel_id", "tv_archive")
+        private val LIVE_KEYS = setOf("stream_id", "num", "name", "stream_icon", "category_id", "epg_channel_id", "tv_archive", "tv_archive_duration")
         private val VOD_KEYS = setOf("stream_id", "name", "stream_icon", "rating", "category_id", "container_extension", "added")
         private val SERIES_KEYS = setOf("series_id", "name", "cover", "plot", "genre", "releaseDate", "release_date", "rating", "category_id", "last_modified")
 

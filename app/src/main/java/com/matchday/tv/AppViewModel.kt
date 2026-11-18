@@ -42,6 +42,7 @@ sealed interface Screen {
     data object Recordings : Screen
     data object RecordingPlayer : Screen
     data object Downloads : Screen
+    data object Catchup : Screen
     data object EditSubscription : Screen
 }
 
@@ -239,7 +240,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun holdDownloadsFor(s: Screen) {
-        val watching = s == Screen.Player || s == Screen.VodPlayer && library.playing?.downloadId == null ||
+        val watching = s == Screen.Player || s == Screen.Catchup || s == Screen.VodPlayer && library.playing?.downloadId == null ||
             (previewEnabled && (s == Screen.Live || s == Screen.Guide))
         val sub = activeSubscription?.id
         val hold = if (watching && sub != null && limitFor(null) <= 1) sub else null
@@ -399,7 +400,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 backupClients[sub.id] = c
                 backups[sub.id] = (backups[sub.id] ?: BackupSub()).copy(status = "Loading…")
                 try {
-                    runCatching { c.login() }.getOrNull()?.maxConnections?.toIntOrNull()?.let { connectionLimits[sub.id] = it }
+                    runCatching { c.login() }.getOrNull()?.let { noteAccount(sub.id, it) }
                     val chans = c.liveStreams().map { it.copy(subId = sub.id) }
                     backups[sub.id] = BackupSub(channels = chans, status = "Backup ready · ${chans.size} channels")
                     val films = runCatching { c.vodStreams().map { it.copy(subId = sub.id) } }.getOrDefault(emptyList())
@@ -777,7 +778,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 while (true) {
                     try {
                         val account = c.login()
-                        account.maxConnections?.toIntOrNull()?.let { connectionLimits[sub.id] = it }
+                        noteAccount(sub.id, account)
                         break
                     } catch (e: Exception) {
                         // Right after the Fire Stick wakes, the network may not be up yet.
@@ -889,7 +890,89 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Programmes for a channel: the full guide if we have it, else the short EPG. */
     fun programmesFor(channel: Channel): List<EpgEntry> {
         val full = channel.epgId?.trim()?.lowercase()?.let { guide[it] }
-        return if (!full.isNullOrEmpty()) full else epg[channel.uid].orEmpty()
+        val base = if (!full.isNullOrEmpty()) full else epg[channel.uid].orEmpty()
+        val past = archiveEpg[channel.uid]
+        if (past.isNullOrEmpty()) return base
+        // Older programmes (from the catch-up listing) before the guide's own data.
+        val firstStart = base.firstOrNull()?.start ?: Long.MAX_VALUE
+        return past.filter { it.end <= firstStart } + base
+    }
+
+    // ---------- Catch-up ----------
+    private val archiveEpg = androidx.compose.runtime.mutableStateMapOf<String, List<EpgEntry>>()
+    private val archiveLoading = HashSet<String>()
+    private val serverClocks = HashMap<String, Pair<Long?, String?>>()
+
+    private fun noteAccount(subId: String, account: com.matchday.tv.data.AccountInfo) {
+        account.maxConnections?.toIntOrNull()?.let { connectionLimits[subId] = it }
+        serverClocks[subId] = account.serverOffsetMs to account.timezone
+    }
+
+    /** Load past programmes for a catch-up channel (once). */
+    fun loadArchiveEpg(channel: Channel) {
+        if (!channel.hasArchive) return
+        val id = channel.uid
+        if (archiveEpg.containsKey(id) || id in archiveLoading) return
+        val c = clientFor(channel.subId) ?: return
+        archiveLoading += id
+        viewModelScope.launch {
+            try {
+                archiveEpg[id] = c.archiveEpg(channel.streamId)
+            } catch (_: Exception) {
+                archiveEpg[id] = emptyList()
+            } finally {
+                archiveLoading -= id
+            }
+        }
+    }
+
+    /** How far back catch-up goes on this channel (0 if it has none). */
+    fun archiveMs(channel: Channel): Long = if (!channel.hasArchive) 0 else (channel.archiveDays.takeIf { it > 0 } ?: 1).coerceAtMost(14) * 24 * 60 * 60 * 1000L
+
+    /** Can this programme be watched from its start? */
+    fun canCatchUp(channel: Channel, entry: EpgEntry?, now: Long = System.currentTimeMillis()): Boolean =
+        entry != null && channel.hasArchive && entry.start < now - 60_000 && entry.start > now - archiveMs(channel)
+
+    /** The provider's time zone for building catch-up addresses. */
+    private fun serverZone(subId: String?): java.util.TimeZone {
+        val (offset, name) = serverClocks[subId ?: activeSubscription?.id ?: ""] ?: (null to null)
+        val named = name?.let { java.util.TimeZone.getTimeZone(it) }?.takeIf { it.id != "GMT" || name == "GMT" }
+        return when {
+            named != null && (offset == null || named.getOffset(System.currentTimeMillis()).toLong() == offset) -> named
+            offset != null -> java.util.SimpleTimeZone(offset.toInt(), "server")
+            named != null -> named
+            else -> java.util.TimeZone.getDefault()
+        }
+    }
+
+    /** Catch-up address for [channel] from [startWall] (UTC ms) for [durationMin] minutes, in one of two URL styles. */
+    fun catchupUrl(channel: Channel, startWall: Long, durationMin: Int, style: Int): String? {
+        val c = clientFor(channel.subId) ?: return null
+        val f = java.text.SimpleDateFormat("yyyy-MM-dd:HH-mm", java.util.Locale.US).apply { timeZone = serverZone(channel.subId) }
+        return c.catchupUrl(channel.streamId, f.format(java.util.Date(startWall)), durationMin.coerceIn(5, 600), style)
+    }
+
+    /** Versions of [channel] (and backup subscriptions) that keep catch-up, best first. */
+    fun catchupSources(channel: Channel): List<Channel> = sourcesFor(channel).filter { it.hasArchive }
+
+    data class CatchupRequest(val channel: Channel, val title: String, val progStart: Long, val progEnd: Long, val from: Long, val returnTo: Screen)
+    var catchup by mutableStateOf<CatchupRequest?>(null)
+        private set
+
+    /** Watch [entry] on [channel] from the start (2 minutes early, as guide times are often a little off). */
+    fun playCatchup(channel: Channel, entry: EpgEntry, from: Screen) {
+        live.stop()
+        catchup = CatchupRequest(channel, entry.title, entry.start, entry.end, entry.start - 2 * 60_000, from)
+        screen = Screen.Catchup
+    }
+
+    /** "Watch from the start" while watching live: Back afterwards returns where live TV would. */
+    fun catchupFromPlayer(channel: Channel, entry: EpgEntry) = playCatchup(channel, entry, returnScreen)
+
+    /** From catch-up straight into the live channel. */
+    fun joinLive(channel: Channel, from: Screen) {
+        catchup = null
+        play(channel, from)
     }
 
     fun loadGuide(force: Boolean = false) {

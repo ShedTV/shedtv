@@ -296,6 +296,12 @@ private fun FeaturedMatch(vm: AppViewModel, f: Fixture, now: Long, comingUp: Lis
                         Text("▶  Watch live", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.background(Color(0x26FFFFFF), RoundedCornerShape(10.dp)).padding(horizontal = 22.dp, vertical = 10.dp))
                     }
+                    if (vm.canCatchUp(f.channel, f.entry)) {
+                        FocusTile(onClick = { vm.playCatchup(f.channel, f.entry, com.matchday.tv.Screen.Sport) }, corner = 10.dp, focusedScale = 1.05f) {
+                            Text("⟲  From the start", fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.background(Color(0x1AFFFFFF), RoundedCornerShape(10.dp)).padding(horizontal = 18.dp, vertical = 10.dp))
+                        }
+                    }
                     if (f.alternatives.isNotEmpty()) {
                         Text("+${f.alternatives.size} backup stream" + if (f.alternatives.size == 1) "" else "s", color = Palette.TextMuted, fontSize = 12.sp)
                     }
@@ -346,7 +352,11 @@ private fun ComingUpPanel(vm: AppViewModel, list: List<Fixture>, now: Long) {
 private fun LiveCard(vm: AppViewModel, f: Fixture, now: Long) {
     val hub = vm.sport
     val mine = f.involves(hub.followedKeys)
-    FocusTile(onClick = { vm.play(f.channel, from = Screen.Sport) }, corner = 16.dp, focusedScale = 1.05f) {
+    FocusTile(
+        onClick = { vm.play(f.channel, from = Screen.Sport) },
+        onLongClick = if (vm.canCatchUp(f.channel, f.entry)) ({ vm.playCatchup(f.channel, f.entry, Screen.Sport) }) else null,
+        corner = 16.dp, focusedScale = 1.05f,
+    ) {
         Column(
             Modifier.width(250.dp).background(Palette.Card)
                 .then(if (mine) Modifier.border(2.dp, Palette.Accent.copy(alpha = 0.6f), RoundedCornerShape(16.dp)) else Modifier)

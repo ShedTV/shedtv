@@ -147,7 +147,7 @@ private fun Screens(vm: AppViewModel) {
     ) { screen -> ScreenFor(vm, screen) }
 }
 
-private val instantScreens = setOf(Screen.Player, Screen.VodPlayer, Screen.Loading, Screen.RecordingPlayer)
+private val instantScreens = setOf(Screen.Player, Screen.VodPlayer, Screen.Loading, Screen.RecordingPlayer, Screen.Catchup)
 private val pageScreens = setOf(Screen.MovieDetails, Screen.SeriesDetails, Screen.Teams, Screen.Categories, Screen.EditSubscription)
 
 /** Quick fades between sections, a short slide for pages opened from them; video always cuts straight in. */
@@ -181,6 +181,7 @@ private fun ScreenFor(vm: AppViewModel, screen: Screen) {
         Screen.Recordings -> com.matchday.tv.ui.RecordingsScreen(vm)
         Screen.RecordingPlayer -> com.matchday.tv.ui.RecordingPlayerScreen(vm)
         Screen.Downloads -> com.matchday.tv.ui.DownloadsScreen(vm)
+        Screen.Catchup -> com.matchday.tv.ui.CatchupScreen(vm)
         Screen.Loading -> LoadingScreen(vm.loadingMessage)
         Screen.Sport -> SportHubScreen(vm)
         Screen.Teams -> TeamPickerScreen(vm)

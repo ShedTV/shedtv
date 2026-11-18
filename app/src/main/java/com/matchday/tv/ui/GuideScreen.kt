@@ -89,7 +89,9 @@ private fun blocksFor(programmes: List<EpgEntry>, from: Long, to: Long): List<Bl
 fun GuideScreen(vm: AppViewModel) {
     val now = rememberNow()
     val channels = vm.visibleChannels
-    val earliest = floorHalfHour(now) - 2 * 60 * MIN
+    // Catch-up channels let the guide go back as far as their archive.
+    val archiveBack = remember(channels) { channels.filter { it.hasArchive }.maxOfOrNull { vm.archiveMs(it) } ?: 0L }
+    val earliest = floorHalfHour(now) - maxOf(2 * 60 * MIN, archiveBack)
     val latest = floorHalfHour(now) + 34 * 60 * MIN
 
     var windowStart by remember { mutableLongStateOf(floorHalfHour(System.currentTimeMillis())) }
@@ -134,6 +136,12 @@ fun GuideScreen(vm: AppViewModel) {
     // Fetch the short EPG for channels the full guide doesn't cover, as they come into view.
     LaunchedEffect(row, vm.guide) {
         channels.subList((row - 6).coerceAtLeast(0), (row + 10).coerceAtMost(channels.size)).forEach { vm.loadEpg(it) }
+    }
+    // Past listings for catch-up channels: the highlighted one, and those in view once you look back.
+    val lookingBack = windowStart < floorHalfHour(now)
+    LaunchedEffect(row, lookingBack) {
+        channels.getOrNull(row)?.let { vm.loadArchiveEpg(it) }
+        if (lookingBack) channels.subList((row - 4).coerceAtLeast(0), (row + 8).coerceAtMost(channels.size)).forEach { vm.loadArchiveEpg(it) }
     }
 
     BackHandler { vm.navigate(Screen.Sport) }
@@ -234,7 +242,9 @@ fun GuideScreen(vm: AppViewModel) {
                                 if (okDown) {
                                     okDown = false
                                     vm.lastFocusedChannelId = ch.streamId
-                                    vm.play(ch, from = Screen.Guide)
+                                    val past = cur.entry
+                                    if (past != null && cur.end <= System.currentTimeMillis() && vm.canCatchUp(ch, past)) vm.playCatchup(ch, past, Screen.Guide)
+                                    else vm.play(ch, from = Screen.Guide)
                                 }
                                 return@onPreviewKeyEvent true
                             }
@@ -258,14 +268,15 @@ fun GuideScreen(vm: AppViewModel) {
                                     val prev = blocks.lastOrNull { it.end <= cur.start }
                                     when {
                                         // At the left edge of the present: step out to the category list.
-                                        cur.start <= windowStart && windowStart <= floorHalfHour(now) -> { catsOpen = true; true }
+                                        cur.start <= windowStart && windowStart <= floorHalfHour(now) && !(ch.hasArchive && windowStart > earliest) -> { catsOpen = true; true }
                                         cur.start < windowStart && windowStart > earliest -> {
                                             windowStart -= HALF_HOUR
                                             anchor = maxOf(cur.start, windowStart)
                                             true
                                         }
                                         prev != null && prev.end > earliest -> {
-                                            anchor = maxOf(prev.start, earliest)
+                                            // A long gap with no listings: step through it half an hour at a time.
+                                            anchor = if (prev.filler && prev.end - prev.start > 3 * 60 * MIN) prev.end - HALF_HOUR else maxOf(prev.start, earliest)
                                             if (anchor < windowStart) windowStart = maxOf(earliest, floorHalfHour(anchor))
                                             true
                                         }
@@ -369,6 +380,9 @@ fun GuideScreen(vm: AppViewModel) {
             val entry = block.entry
             val t = System.currentTimeMillis()
             val actions = buildList {
+                if (entry != null && vm.canCatchUp(ch, entry, t)) {
+                    add(MenuAction(if (entry.end > t) "⟲  Watch from the start" else "⟲  Watch") { vm.lastFocusedChannelId = ch.streamId; vm.playCatchup(ch, entry, Screen.Guide) })
+                }
                 if (vm.recordingEnabled) {
                     val active = vm.recordingFor(ch)
                     when {
@@ -486,12 +500,15 @@ private fun GuideRow(
                         .padding(horizontal = 10.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
+                    val archiveFrom = if (channel.hasArchive) now - (channel.archiveDays.takeIf { it > 0 } ?: 1).coerceAtMost(14) * 24 * 60 * 60 * 1000L else Long.MAX_VALUE
+                    val catchable = past && !b.filler && b.entry != null && b.start > archiveFrom
                     val fg = when {
                         isSelected -> Palette.Background
+                        catchable -> Palette.TextSoft
                         b.filler || past -> Palette.TextMuted
                         else -> Palette.Text
                     }
-                    Text(b.title, color = fg, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text((if (catchable) "⟲ " else "") + b.title, color = fg, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (!b.filler && width > 90.dp) {
                         Text(
                             "${formatTime(b.start)} – ${formatTime(b.end)}",

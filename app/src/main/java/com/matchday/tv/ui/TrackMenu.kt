@@ -96,7 +96,7 @@ fun OptionsPanel(title: String, subtitle: String, actions: List<MenuAction>, onC
 
 /** Options while watching: subtitles, audio and (for live TV) last channel. */
 @Composable
-fun TrackMenu(vm: AppViewModel, player: Player, onLastChannel: (() -> Unit)?, recordChannel: com.matchday.tv.data.Channel? = null, onClose: () -> Unit) {
+fun TrackMenu(vm: AppViewModel, player: Player, onLastChannel: (() -> Unit)?, recordChannel: com.matchday.tv.data.Channel? = null, extraActions: List<MenuAction> = emptyList(), onClose: () -> Unit) {
     var tracks by remember { mutableStateOf(player.currentTracks) }
     var nonce by remember { mutableIntStateOf(0) }
     DisposableEffect(player) {
@@ -126,6 +126,13 @@ fun TrackMenu(vm: AppViewModel, player: Player, onLastChannel: (() -> Unit)?, re
         Text("OPTIONS", color = Palette.Accent, fontSize = 18.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
         Text("Back to close", color = Palette.TextMuted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 8.dp))
 
+        extraActions.forEach { a -> MenuItem(a.label, false, firstMod()) { onClose(); a.action() } }
+        if (recordChannel != null) {
+            val prog = vm.programmesFor(recordChannel).firstOrNull { it.isOn(System.currentTimeMillis()) }
+            if (vm.canCatchUp(recordChannel, prog)) {
+                MenuItem("⟲  Watch from the start (${formatTime(prog!!.start)})", false, firstMod()) { onClose(); vm.catchupFromPlayer(recordChannel, prog) }
+            }
+        }
         if (onLastChannel != null) {
             MenuItem("Last channel", false, firstMod()) { onLastChannel(); onClose() }
         }

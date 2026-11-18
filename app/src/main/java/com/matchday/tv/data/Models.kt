@@ -10,6 +10,10 @@ data class AccountInfo(
     val status: String?,
     val expiry: String?,
     val maxConnections: String?,
+    /** The provider's clock offset from UTC, worked out from its reported local time. */
+    val serverOffsetMs: Long? = null,
+    /** The provider's time zone name, if it gives one. */
+    val timezone: String? = null,
 )
 
 data class Category(
@@ -27,6 +31,8 @@ data class Channel(
     val hasArchive: Boolean,
     /** Set for channels from another (backup) subscription; null for the active one. */
     val subId: String? = null,
+    /** How many days of catch-up the provider keeps for this channel. */
+    val archiveDays: Int = 0,
 ) {
     /** Unique across subscriptions (two providers can use the same stream number). */
     val uid: String get() = (subId ?: "") + ":" + streamId
