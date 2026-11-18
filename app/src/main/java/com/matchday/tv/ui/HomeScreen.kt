@@ -79,10 +79,11 @@ fun HomeScreen(vm: AppViewModel) {
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, Screen.Home)
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 28.dp, top = 24.dp, bottom = 40.dp),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 22.dp, top = 24.dp, bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Spacer(Modifier.width(6.dp))
                 Text("HOME", color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
                 SmallChip("★  Watchlist (${wl.items.size})", Modifier) { vm.navigate(Screen.Watchlist) }
             }
@@ -90,25 +91,25 @@ fun HomeScreen(vm: AppViewModel) {
             // On now
             Section("On now from your watchlist") {
                 if (wl.items.isEmpty()) {
-                    EmptyCard("Add shows, teams or anything else you like to your watchlist, and ShedTV picks them out of your guide here.", "Set up your watchlist", firstMod()) { vm.navigate(Screen.Watchlist) }
+                    EmptyCard("Add shows, teams or anything else you like to your watchlist, and ShedTV picks them out of your guide here.", "Set up your watchlist", firstMod().padding(start = 6.dp, top = 8.dp, bottom = 8.dp)) { vm.navigate(Screen.Watchlist) }
                 } else if (wl.onNow.isEmpty()) {
-                    Text("Nothing from your watchlist is on right now.", color = Palette.TextMuted, fontSize = 14.sp, modifier = Modifier.padding(end = 28.dp))
+                    Text("Nothing from your watchlist is on right now.", color = Palette.TextMuted, fontSize = 14.sp, modifier = Modifier.padding(start = 6.dp, end = 56.dp))
                 } else Row {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(end = 28.dp, top = 4.dp, bottom = 4.dp)) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(start = 6.dp, end = 48.dp, top = 10.dp, bottom = 10.dp)) {
                         items(wl.onNow, key = { it.channel.uid + it.entry.start }) { m -> MatchCard(vm, m, now, live = true, modifier = firstMod()) }
                     }
                 }
             }
 
             if (wl.comingUp.isNotEmpty()) Section("Coming up") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(end = 28.dp, top = 4.dp, bottom = 4.dp)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(start = 6.dp, end = 48.dp, top = 10.dp, bottom = 10.dp)) {
                     items(wl.comingUp, key = { "c" + it.channel.uid + it.entry.start }) { m -> MatchCard(vm, m, now, live = false, modifier = firstMod()) }
                 }
             }
 
             val cont = vm.continueWatching()
             if (cont.isNotEmpty()) Section("Continue watching") {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(end = 28.dp, top = 4.dp, bottom = 4.dp)) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(start = 6.dp, end = 48.dp, top = 10.dp, bottom = 10.dp)) {
                     items(cont, key = { "w" + it.id }) { e ->
                         FocusTile(onClick = { vm.resume(e) }, corner = 12.dp, focusedScale = 1.05f, modifier = firstMod().width(210.dp)) {
                             Column {
@@ -129,8 +130,8 @@ fun HomeScreen(vm: AppViewModel) {
             val favs = vm.favouriteChannels()
             Section("Favourite channels") {
                 if (favs.isEmpty()) {
-                    Text("Hold OK on any channel in Live TV or the guide to add it to your favourites.", color = Palette.TextMuted, fontSize = 14.sp, modifier = Modifier.padding(end = 28.dp))
-                } else LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(end = 28.dp, top = 4.dp, bottom = 4.dp)) {
+                    Text("Hold OK on any channel in Live TV or the guide to add it to your favourites.", color = Palette.TextMuted, fontSize = 14.sp, modifier = Modifier.padding(start = 6.dp, end = 56.dp))
+                } else LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(start = 6.dp, end = 48.dp, top = 10.dp, bottom = 10.dp)) {
                     items(favs, key = { "f" + it.uid }) { ch ->
                         val prog = vm.programmesFor(ch).firstOrNull { it.isOn(now) }
                         FocusTile(onClick = { vm.play(ch, from = Screen.Home) }, onLongClick = { vm.toggleFavourite(ch) }, corner = 12.dp, focusedScale = 1.05f, modifier = firstMod().width(220.dp)) {
@@ -152,8 +153,9 @@ fun HomeScreen(vm: AppViewModel) {
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(title.uppercase(), color = Palette.TextSoft, fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(title.uppercase(), color = Palette.TextSoft, fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp,
+            modifier = Modifier.padding(start = 6.dp))
         content()
     }
 }

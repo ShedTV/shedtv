@@ -1,9 +1,10 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+@file:OptIn(ExperimentalTvMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package com.matchday.tv.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.nativeKeyCode
@@ -140,7 +141,7 @@ private fun Setting(title: String, body: String, impact: String? = null, control
 
 @Composable
 private fun OnOff(on: Boolean, onText: String = "On", offText: String = "Off", set: (Boolean) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Chip(onText, selected = on) { set(true) }
         Chip(offText, selected = !on) { set(false) }
     }
@@ -177,7 +178,7 @@ private fun SubscriptionSettings(vm: AppViewModel) {
                     }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Chip("+  Add subscription") { vm.startAddSubscription() }
                 if (active != null) {
                     Chip("Edit ${active.name}") { vm.startEditSubscription(active) }
@@ -203,7 +204,7 @@ private fun SubscriptionSettings(vm: AppViewModel) {
             "The name ShedTV gives your provider when it connects, the way a web browser says which browser it is. Leave it on Android device unless your provider blocks apps or asks for a particular player. Currently: ${UserAgents.labelFor(active.userAgent)}.",
             "Takes effect from the next channel you open. No effect on speed.",
         ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 UserAgents.presets.forEach { p ->
                     Chip(p.label, selected = active.userAgent == p.value) { vm.updateActive(userAgent = p.value); customUa = p.value; editingUa = false }
                 }
@@ -239,7 +240,7 @@ private fun SubscriptionSettings(vm: AppViewModel) {
                 "How live channels are sent to ShedTV. MPEG-TS starts quickest and works with live rewind and recording, so it's the best choice for most people. Try HLS only if some channels won't play.",
                 "With HLS, live rewind is unavailable. No difference in picture quality.",
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Chip("MPEG-TS (recommended)", selected = vm.streamFormat == "ts") { vm.updateActive(streamFormat = "ts") }
                     Chip("HLS (m3u8)", selected = vm.streamFormat == "m3u8") { vm.updateActive(streamFormat = "m3u8") }
                 }
@@ -315,7 +316,7 @@ private fun SavingSettings(vm: AppViewModel) {
         if (vm.recordingEnabled) {
             val chosen = vm.recordingVolume()
             Text("Save recordings to:", color = Palette.TextSoft, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 com.matchday.tv.record.RecorderManager.volumes().forEach { v ->
                     Chip("${v.label} · %.1f GB free".format(v.freeBytes / 1073741824.0), selected = chosen?.dir == v.dir) { vm.chooseRecordingVolume(v) }
                 }
@@ -341,7 +342,7 @@ private fun SavingSettings(vm: AppViewModel) {
         "One download at a time, using one connection; on one-connection subscriptions downloads pause while you watch. A film is usually 1 to 4 GB.",
     ) {
         Text("Save downloads to:", color = Palette.TextSoft, fontSize = 13.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             com.matchday.tv.download.DownloadManager.volumes().forEach { v ->
                 Chip("${v.label} · %.1f GB free".format(v.freeBytes / 1073741824.0), selected = current == v.dir.path) { vm.setDownloadFolder(v.dir.path) }
             }
@@ -391,7 +392,7 @@ private fun MenuSettings(vm: AppViewModel) {
         "The screen you see when ShedTV starts. Back from anywhere also brings you here, and Back on this screen closes ShedTV.",
         "No effect on speed.",
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Chip("Home", selected = vm.startScreen == "home") { vm.chooseStart("home") }
             Chip("Live TV", selected = vm.startScreen == "live") { vm.chooseStart("live") }
             Chip("Guide", selected = vm.startScreen == "guide") { vm.chooseStart("guide") }
@@ -412,7 +413,7 @@ private fun LockSettings(vm: AppViewModel) {
         else "Set a 4-digit PIN, then choose which categories need it. Locked categories are hidden from every list until the PIN is entered.",
         "No effect on speed. If you forget the PIN, clearing ShedTV's data (in your device's app settings) removes it, along with your other settings.",
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (!vm.pinSet) Chip("Set a PIN") { vm.setNewPin() }
             else {
                 Chip("Change PIN") { vm.askPin("Enter your current PIN") { vm.setNewPin() } }
@@ -454,7 +455,7 @@ private fun DisplaySettings(vm: AppViewModel) {
         "Makes all the writing in ShedTV bigger, for easier reading from the sofa.",
         "No effect on speed. At the larger sizes some long names are shortened with \"…\" to fit.",
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Chip("Normal", selected = vm.textScale < 1.05f) { vm.chooseTextScale(1f) }
             Chip("Large", selected = vm.textScale in 1.05f..1.2f) { vm.chooseTextScale(1.15f) }
             Chip("Extra large", selected = vm.textScale > 1.2f) { vm.chooseTextScale(1.3f) }
@@ -470,7 +471,7 @@ private fun DisplaySettings(vm: AppViewModel) {
         "The colour used for the highlight, buttons and progress bars. Yellow and blue are easiest to tell apart with colour blindness.",
         "No effect on speed.",
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Palette.accents.forEach { (name, argb) ->
                 FocusTile(onClick = { vm.chooseAccent(argb) }, selected = vm.accent == argb, corner = 10.dp, focusedScale = 1.06f) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -486,7 +487,7 @@ private fun DisplaySettings(vm: AppViewModel) {
         "Compact fits more channels on screen at once; large makes each row taller and easier to read.",
         "No effect on speed.",
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Chip("Compact", selected = vm.guideRows == "compact") { vm.chooseGuideRows("compact") }
             Chip("Normal", selected = vm.guideRows == "normal") { vm.chooseGuideRows("normal") }
             Chip("Large", selected = vm.guideRows == "large") { vm.chooseGuideRows("large") }
@@ -497,7 +498,7 @@ private fun DisplaySettings(vm: AppViewModel) {
         "A small clock in the top-right corner of the screen. Choose whether it also shows while you're watching.",
         "No effect on speed.",
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Chip("Off", selected = vm.clockMode == "off") { vm.chooseClock("off") }
             Chip("Menus only", selected = vm.clockMode == "menus") { vm.chooseClock("menus") }
             Chip("Everywhere, including while watching", selected = vm.clockMode == "always") { vm.chooseClock("always") }
@@ -518,7 +519,7 @@ private fun AboutSettings(vm: AppViewModel) {
             " ShedTV checks for new versions when it opens; you can also check now. Updates keep all your settings, subscriptions and favourites.",
         if (!vm.updater.canInstall) "The first time, your device needs to allow ShedTV to install apps. Install opens that switch for you." else null,
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Chip(if (vm.updater.busy) "Working…" else "Check for updates") { vm.updater.check(silent = false) }
             if (vm.updater.available) Chip("Install build ${vm.updater.latestBuild}", selected = true) { vm.updater.install() }
         }
