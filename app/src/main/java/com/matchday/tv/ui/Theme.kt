@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -269,6 +271,6 @@ fun ScreenClock(modifier: Modifier = Modifier) {
     androidx.tv.material3.Text(
         formatTime(now), color = Palette.Text, fontSize = 18.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
         fontFamily = DisplayFamily, letterSpacing = 1.sp,
-        modifier = modifier.background(Color(0xB307090C), androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 3.dp),
+        modifier = modifier.background(Color(0xB307090C), androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).then(Modifier.padding(horizontal = 10.dp, vertical = 3.dp)),
     )
 }
