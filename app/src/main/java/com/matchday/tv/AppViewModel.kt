@@ -57,6 +57,7 @@ data class SearchResults(
 
 const val CATEGORY_FAVOURITES = "__fav"
 const val CATEGORY_ALL = "__all"
+const val CATEGORY_CATCHUP = "__catchup"
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -467,6 +468,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             when (selectedCategoryId) {
                 CATEGORY_ALL -> shownChannels
                 CATEGORY_FAVOURITES -> allChannels.filter { it.streamId in favourites }
+                CATEGORY_CATCHUP -> catchupChannels
                 else -> allChannels.filter { it.categoryId == selectedCategoryId }
             }
         )
@@ -515,11 +517,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         activeSubscription?.let { prefs.setCategoryOrder(it.id, emptyList()) }
     }
 
+    /** Every channel your provider keeps catch-up for (from categories you haven't hidden). */
+    private val catchupChannels: List<Channel> by derivedStateOf { shownChannels.filter { it.hasArchive } }
+
     val categoryList: List<Category> by derivedStateOf {
         listOf(
             Category(CATEGORY_FAVOURITES, "Favourites"),
             Category(CATEGORY_ALL, "All channels"),
-        ) + orderedCategories.filter { it.id !in hiddenCategories }
+        ) + (if (catchupChannels.isNotEmpty()) listOf(Category(CATEGORY_CATCHUP, "⟲ Catch-up")) else emptyList()) + orderedCategories.filter { it.id !in hiddenCategories }
     }
 
     val currentChannel: Channel? get() = playlist.getOrNull(playingIndex)
@@ -839,6 +844,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun channelCount(categoryId: String): Int = when (categoryId) {
         CATEGORY_ALL -> shownChannels.size
         CATEGORY_FAVOURITES -> favourites.size
+        CATEGORY_CATCHUP -> catchupChannels.size
         else -> allChannels.count { it.categoryId == categoryId }
     }
 
