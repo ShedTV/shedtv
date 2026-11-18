@@ -21,7 +21,69 @@ const val USER_AGENT = "Mozilla/5.0 (Linux; Android 9; AFTKA) AppleWebKit/537.36
 /** Talks to an Xtream Codes compatible provider. */
 class XtreamClient(credentials: Credentials, private val userAgent: String? = null) {
 
-    val creds = credentials.copy(server = normaliseServer(credentials.server))
+    val creds = credentials.copy(server = if (credentials.playlist) normaliseUrl(credentials.server) else normaliseServer(credentials.server))
+    val isPlaylist get() = creds.playlist
+
+    // ---------- M3U playlists ----------
+    private class Parsed(val channels: List<Channel>, val categories: List<Category>, val guideUrl: String?)
+    @Volatile private var parsed: Parsed? = null
+    private val parseLock = kotlinx.coroutines.sync.Mutex()
+
+    private suspend fun playlist(): Parsed = parsed ?: parseLock.withLockCompat {
+        parsed ?: withContext(Dispatchers.IO) { fetchPlaylist() }.also { parsed = it }
+    }
+
+    private suspend fun <T> kotlinx.coroutines.sync.Mutex.withLockCompat(block: suspend () -> T): T {
+        lock(); try { return block() } finally { unlock() }
+    }
+
+    private fun fetchPlaylist(): Parsed {
+        val request = Request.Builder().url(creds.server).header("User-Agent", userAgent ?: UserAgents.current).build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Playlist returned HTTP ${response.code}")
+            val reader = (response.body ?: throw IOException("Empty playlist")).charStream().buffered()
+            val groups = LinkedHashMap<String, String>()
+            val channels = ArrayList<Channel>()
+            var guide: String? = null
+            var info: String? = null
+            var first = true
+            val attr = Regex("([a-zA-Z0-9-]+)=\"([^\"]*)\"")
+            reader.lineSequence().forEach { raw ->
+                val line = raw.trim()
+                if (line.isEmpty()) return@forEach
+                if (first) {
+                    first = false
+                    if (!line.startsWith("#EXTM3U")) throw IOException("That address isn't an M3U playlist.")
+                    attr.findAll(line).forEach { m -> if (m.groupValues[1] == "url-tvg" || m.groupValues[1] == "x-tvg-url") guide = m.groupValues[2].split(',').first().trim() }
+                    return@forEach
+                }
+                when {
+                    line.startsWith("#EXTINF") -> info = line
+                    line.startsWith("#") -> Unit
+                    else -> {
+                        val i = info ?: "#EXTINF:-1,${line.substringAfterLast('/')}"
+                        info = null
+                        val a = attr.findAll(i.substringBefore(',', i)).associate { it.groupValues[1] to it.groupValues[2] }
+                        val name = i.substringAfterLast(',').trim().ifBlank { a["tvg-name"] ?: "Channel" }
+                        val group = a["group-title"]?.ifBlank { null } ?: "Other"
+                        val catId = groups.getOrPut(group) { "g" + groups.size }
+                        // A stable id from the address, so favourites and history survive refreshes.
+                        val id = java.lang.Long.toHexString(line.hashCode().toLong() and 0xffffffffL) + "-" + (channels.size % 10000)
+                        channels += Channel(
+                            streamId = id, num = channels.size + 1, name = name, logo = a["tvg-logo"]?.ifBlank { null },
+                            categoryId = catId, epgId = a["tvg-id"]?.ifBlank { null } ?: a["tvg-name"]?.ifBlank { null },
+                            hasArchive = false, directUrl = line,
+                        )
+                    }
+                }
+            }
+            if (channels.isEmpty()) throw IOException("The playlist has no channels.")
+            return Parsed(channels, groups.map { (name, id) -> Category(id, name) }, guide)
+        }
+    }
+
+    /** True when this playlist (or the address given for it) has a TV guide. */
+    suspend fun hasGuide(): Boolean = !isPlaylist || creds.epgUrl.isNotBlank() || playlist().guideUrl != null
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -48,6 +110,7 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
     }
 
     suspend fun login(): AccountInfo {
+        if (isPlaylist) { playlist(); return AccountInfo("Active", null, null) }
         val root = get(apiUrl()) as? JsonObject
             ?: throw IOException("Unexpected response. Check the server address.")
         val user = root["user_info"] as? JsonObject
@@ -71,9 +134,9 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
         return AccountInfo(status, user.str("exp_date"), user.str("max_connections"), offset, server?.str("timezone"))
     }
 
-    suspend fun liveCategories(): List<Category> = categories("get_live_categories")
-    suspend fun vodCategories(): List<Category> = categories("get_vod_categories")
-    suspend fun seriesCategories(): List<Category> = categories("get_series_categories")
+    suspend fun liveCategories(): List<Category> = if (isPlaylist) playlist().categories else categories("get_live_categories")
+    suspend fun vodCategories(): List<Category> = if (isPlaylist) emptyList() else categories("get_vod_categories")
+    suspend fun seriesCategories(): List<Category> = if (isPlaylist) emptyList() else categories("get_series_categories")
 
     private suspend fun categories(action: String): List<Category> {
         val arr = get(apiUrl(action)) as? JsonArray ?: return emptyList()
@@ -84,7 +147,9 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
         }.distinctBy { it.id }
     }
 
-    suspend fun liveStreams(): List<Channel> =
+    suspend fun liveStreams(): List<Channel> = if (isPlaylist) playlist().channels else xtreamLiveStreams()
+
+    private suspend fun xtreamLiveStreams(): List<Channel> =
         streamList(apiUrl("get_live_streams"), LIVE_KEYS) { o, index ->
             val id = o["stream_id"] ?: return@streamList null
             Channel(
@@ -100,6 +165,7 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
         }.distinctBy { it.streamId }.sortedBy { it.num }
 
     suspend fun shortEpg(streamId: String, limit: Int = 4): List<EpgEntry> {
+        if (isPlaylist) return emptyList()
         val root = get(apiUrl("get_short_epg", "&stream_id=$streamId&limit=$limit")) as? JsonObject
             ?: return emptyList()
         val listings = root["epg_listings"] as? JsonArray ?: return emptyList()
@@ -118,6 +184,7 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
 
     /** Past programmes for a catch-up channel (the full listing the provider keeps). */
     suspend fun archiveEpg(streamId: String): List<EpgEntry> {
+        if (isPlaylist) return emptyList()
         val root = get(apiUrl("get_simple_data_table", "&stream_id=$streamId")) as? JsonObject ?: return emptyList()
         val listings = root["epg_listings"] as? JsonArray ?: return emptyList()
         val now = System.currentTimeMillis()
@@ -138,7 +205,9 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
         if (style == 0) "${creds.server}/timeshift/${encPath(creds.username)}/${encPath(creds.password)}/$durationMin/$start/$streamId.ts"
         else "${creds.server}/streaming/timeshift.php?username=${encPath(creds.username)}&password=${encPath(creds.password)}&stream=$streamId&start=$start&duration=$durationMin"
 
-    suspend fun vodStreams(): List<VodItem> =
+    suspend fun vodStreams(): List<VodItem> = if (isPlaylist) emptyList() else xtreamVodStreams()
+
+    private suspend fun xtreamVodStreams(): List<VodItem> =
         streamList(apiUrl("get_vod_streams"), VOD_KEYS) { o, _ ->
             val id = o["stream_id"] ?: return@streamList null
             VodItem(
@@ -152,7 +221,9 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
             )
         }.distinctBy { it.id }
 
-    suspend fun series(): List<SeriesItem> =
+    suspend fun series(): List<SeriesItem> = if (isPlaylist) emptyList() else xtreamSeries()
+
+    private suspend fun xtreamSeries(): List<SeriesItem> =
         streamList(apiUrl("get_series"), SERIES_KEYS) { o, _ ->
             val id = o["series_id"] ?: return@streamList null
             SeriesItem(
@@ -295,9 +366,11 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
     }
 
     fun xmltvUrl(): String =
-        "${creds.server}/xmltv.php?username=${enc(creds.username)}&password=${enc(creds.password)}"
+        if (isPlaylist) creds.epgUrl.ifBlank { parsed?.guideUrl.orEmpty() }
+        else "${creds.server}/xmltv.php?username=${enc(creds.username)}&password=${enc(creds.password)}"
 
     fun streamUrl(channel: Channel, format: String): String {
+        channel.directUrl?.let { return it }
         val ext = if (format == "m3u8") "m3u8" else "ts"
         return "${creds.server}/live/${encPath(creds.username)}/${encPath(creds.password)}/${channel.streamId}.$ext"
     }
@@ -313,6 +386,12 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
             .followRedirects(true)
             .followSslRedirects(true)
             .build()
+
+        /** A full address (playlist or guide): just make sure it has a scheme. */
+        fun normaliseUrl(raw: String): String {
+            val s = raw.trim()
+            return if (s.startsWith("http://") || s.startsWith("https://")) s else "http://$s"
+        }
 
         fun normaliseServer(raw: String): String {
             var s = raw.trim()

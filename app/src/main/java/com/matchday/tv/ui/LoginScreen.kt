@@ -56,6 +56,8 @@ fun LoginScreen(
     var server by rememberSaveable { mutableStateOf(initial?.server.orEmpty()) }
     var username by rememberSaveable { mutableStateOf(initial?.username.orEmpty()) }
     var password by rememberSaveable { mutableStateOf(initial?.password.orEmpty()) }
+    var playlist by rememberSaveable { mutableStateOf(initial?.playlist ?: false) }
+    var epgUrl by rememberSaveable { mutableStateOf(initial?.epgUrl.orEmpty()) }
     if (onCancel != null) androidx.activity.compose.BackHandler { onCancel() }
     val focus = LocalFocusManager.current
     val first = remember { FocusRequester() }
@@ -63,7 +65,9 @@ fun LoginScreen(
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
 
     fun submit() {
-        if (server.isNotBlank() && username.isNotBlank() && password.isNotBlank()) {
+        if (playlist && server.isNotBlank()) {
+            onSubmit(name.trim(), Credentials(server.trim(), "", "", playlist = true, epgUrl = epgUrl.trim()))
+        } else if (!playlist && server.isNotBlank() && username.isNotBlank() && password.isNotBlank()) {
             onSubmit(name.trim(), Credentials(server.trim(), username.trim(), password))
         }
     }
@@ -81,7 +85,7 @@ fun LoginScreen(
             ShedTvWordmark(40)
             Text(title, color = Palette.Accent, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Text(
-                "Enter your provider's Xtream Codes details.",
+                if (playlist) "Enter the address of an M3U playlist." else "Enter your provider's Xtream Codes details.",
                 color = Palette.TextSoft,
                 fontSize = 18.sp,
             )
@@ -96,14 +100,34 @@ fun LoginScreen(
             Field("Name (e.g. Main sub, Backup sub)", name, { name = it }, Modifier.focusRequester(first), KeyboardType.Text) {
                 focus.moveFocus(FocusDirection.Down)
             }
-            Field("Server address", server, { server = it }, Modifier, KeyboardType.Uri) {
-                focus.moveFocus(FocusDirection.Down)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = { playlist = false }) {
+                    Text((if (!playlist) "● " else "") + "Xtream login", fontSize = 15.sp, fontWeight = if (!playlist) FontWeight.Bold else FontWeight.Normal)
+                }
+                Button(onClick = { playlist = true }) {
+                    Text((if (playlist) "● " else "") + "M3U playlist", fontSize = 15.sp, fontWeight = if (playlist) FontWeight.Bold else FontWeight.Normal)
+                }
             }
-            Field("Username", username, { username = it }, Modifier, KeyboardType.Text) {
-                focus.moveFocus(FocusDirection.Down)
-            }
-            Field("Password", password, { password = it }, Modifier, KeyboardType.Password, isPassword = true, imeAction = ImeAction.Done) {
-                submit()
+            if (playlist) {
+                Field("Playlist address (http://… .m3u)", server, { server = it }, Modifier, KeyboardType.Uri) {
+                    focus.moveFocus(FocusDirection.Down)
+                }
+                Field("TV guide address (optional, XMLTV)", epgUrl, { epgUrl = it }, Modifier, KeyboardType.Uri, imeAction = ImeAction.Done) {
+                    submit()
+                }
+                Button(onClick = { name = name.ifBlank { "ShedTV demo" }; server = "https://shedtv.app/demo.m3u"; epgUrl = "" }) {
+                    Text("Use the ShedTV demo playlist", fontSize = 15.sp)
+                }
+            } else {
+                Field("Server address", server, { server = it }, Modifier, KeyboardType.Uri) {
+                    focus.moveFocus(FocusDirection.Down)
+                }
+                Field("Username", username, { username = it }, Modifier, KeyboardType.Text) {
+                    focus.moveFocus(FocusDirection.Down)
+                }
+                Field("Password", password, { password = it }, Modifier, KeyboardType.Password, isPassword = true, imeAction = ImeAction.Done) {
+                    submit()
+                }
             }
             if (error != null) {
                 Text(error, color = Palette.Live, fontSize = 15.sp)

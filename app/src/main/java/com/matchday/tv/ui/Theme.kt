@@ -254,3 +254,21 @@ fun rememberNow(): Long {
     }
     return now
 }
+
+
+/** Small clock for the top-right corner (Settings → Clock). Updates on the minute. */
+@Composable
+fun ScreenClock(modifier: Modifier = Modifier) {
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000 - System.currentTimeMillis() % 60_000 + 50)
+            now = System.currentTimeMillis()
+        }
+    }
+    androidx.tv.material3.Text(
+        formatTime(now), color = Palette.Text, fontSize = 18.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+        fontFamily = DisplayFamily, letterSpacing = 1.sp,
+        modifier = modifier.background(Color(0xB307090C), androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 3.dp),
+    )
+}

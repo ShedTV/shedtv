@@ -71,7 +71,7 @@ class LivePlayback(private val context: Context) {
     fun start(url: String, streamId: String, rewind: Boolean, muted: Boolean, userAgent: String = UserAgents.current): Boolean {
         agent = userAgent
         timeshift.userAgent = userAgent
-        val buffered = rewind && !url.endsWith(".m3u8") && timeshift.canBuffer()
+        val buffered = rewind && !url.substringBefore('?').endsWith(".m3u8") && ".m3u8?" !in url && timeshift.canBuffer()
         if (!buffered) timeshift.stop()
         useTimeshift.set(buffered)
         timeshift.openTarget = -1

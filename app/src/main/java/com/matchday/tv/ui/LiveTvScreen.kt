@@ -76,7 +76,12 @@ fun LiveTvScreen(vm: AppViewModel) {
         vm.loadEpg(ch)
     }
 
-    androidx.activity.compose.BackHandler { vm.navigate(com.matchday.tv.Screen.Sport) }
+    var inChannels by remember { mutableStateOf(false) }
+    val selectedCat = remember { FocusRequester() }
+    androidx.activity.compose.BackHandler {
+        if (inChannels) { if (runCatching { selectedCat.requestFocus() }.isFailure) runCatching { firstCategory.requestFocus() } }
+        else vm.navigate(com.matchday.tv.Screen.Sport)
+    }
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
     NavRail(vm, com.matchday.tv.Screen.Live)
     Row(
@@ -89,7 +94,9 @@ fun LiveTvScreen(vm: AppViewModel) {
         Column(Modifier.width(200.dp).fillMaxHeight()) {
             Text("LIVE TV", color = Palette.Text, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, fontSize = 24.sp, letterSpacing = 1.sp,
                 modifier = Modifier.padding(start = 6.dp, top = 2.dp))
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.padding(start = 4.dp)) { SmallButton("⚙  Manage categories") { vm.navigate(com.matchday.tv.Screen.Categories) } }
+            Spacer(Modifier.height(4.dp))
             LazyColumn(
                 Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -99,11 +106,13 @@ fun LiveTvScreen(vm: AppViewModel) {
                     val selected = cat.id == vm.selectedCategoryId
                     FocusTile(
                         onClick = { vm.selectCategory(cat.id) },
+                        onLongClick = { vm.navigate(com.matchday.tv.Screen.Categories) },
                         selected = selected,
                         corner = 10.dp,
                         modifier = Modifier
                             .fillMaxWidth()
                             .then(if (index == 0) Modifier.focusRequester(firstCategory) else Modifier)
+                            .then(if (selected) Modifier.focusRequester(selectedCat) else Modifier)
                             .onFocusChanged { if (it.isFocused) vm.selectCategory(cat.id) },
                     ) {
                         Row(
@@ -128,13 +137,10 @@ fun LiveTvScreen(vm: AppViewModel) {
                     }
                 }
             }
-            Row(Modifier.padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SmallButton("Manage categories") { vm.navigate(com.matchday.tv.Screen.Categories) }
-            }
         }
 
         // Channels
-        Column(Modifier.width(360.dp).fillMaxHeight()) {
+        Column(Modifier.width(360.dp).fillMaxHeight().onFocusChanged { inChannels = it.hasFocus }) {
             Text(
                 categoryLabel(vm.categoryList.firstOrNull { it.id == vm.selectedCategoryId }?.name.orEmpty()),
                 color = Palette.TextMuted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,

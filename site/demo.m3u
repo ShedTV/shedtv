@@ -1,0 +1,11 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="demo.bbb" group-title="Open films",Big Buck Bunny (Blender Foundation)
+https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8
+#EXTINF:-1 tvg-id="demo.sintel" group-title="Open films",Sintel (Blender Foundation)
+https://bitdash-a.akamaihd.net/content/sintel/hls/playlist.m3u8
+#EXTINF:-1 tvg-id="demo.tos" group-title="Open films",Tears of Steel (Blender Foundation)
+https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8
+#EXTINF:-1 tvg-id="demo.bipbop" group-title="Test streams",Apple test stream (HD)
+https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_fmp4/master.m3u8
+#EXTINF:-1 tvg-id="demo.bipbop2" group-title="Test streams",Apple test stream (basic)
+https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8

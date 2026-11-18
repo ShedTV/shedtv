@@ -128,6 +128,15 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val backupClients = HashMap<String, XtreamClient>()
     private var backupJob: Job? = null
 
+    // ---------- On-screen clock ----------
+    var clockMode by mutableStateOf(prefs.clock)
+        private set
+
+    fun chooseClock(mode: String) {
+        clockMode = mode
+        prefs.clock = mode
+    }
+
     // ---------- Downloads ----------
     init {
         com.matchday.tv.download.DownloadManager.init(app)
@@ -692,9 +701,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val editing = editingSubscription
         val sub = (editing ?: Subscription(id = Prefs.newId(), name = "", server = "", username = "", password = "")).copy(
             name = name.ifBlank { editing?.name ?: "Subscription ${subscriptions.size + 1}" },
-            server = XtreamClient.normaliseServer(credentials.server),
+            server = if (credentials.playlist) XtreamClient.normaliseUrl(credentials.server) else XtreamClient.normaliseServer(credentials.server),
             username = credentials.username,
             password = credentials.password,
+            playlist = credentials.playlist,
+            epgUrl = credentials.epgUrl.trim().let { if (it.isBlank()) "" else XtreamClient.normaliseUrl(it) },
         )
         connect(sub, saveOnSuccess = true)
     }
@@ -812,7 +823,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 // Drop favourites that no longer exist on the provider.
                 val ids = chans.mapTo(HashSet()) { it.streamId }
                 favourites = favourites.filterTo(HashSet()) { it in ids }
-                selectedCategoryId = if (favourites.isNotEmpty()) CATEGORY_FAVOURITES else CATEGORY_ALL
+                selectedCategoryId = CATEGORY_ALL
                 screen = Screen.Sport
                 loadGuide()
                 loadBackups()
@@ -984,6 +995,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun loadGuide(force: Boolean = false) {
         val c = client ?: return
         if (guideJob?.isActive == true) return
+        if (c.isPlaylist && c.xmltvUrl().isBlank()) {
+            guideStatus = "This playlist has no TV guide. You can add a guide (XMLTV) address in Settings → Subscriptions → edit."
+            return
+        }
         guideLoadedAt = System.currentTimeMillis()
         val ids = allChannels.mapNotNullTo(HashSet()) { it.epgId?.trim()?.lowercase()?.takeIf { id -> id.isNotEmpty() } }
         guideJob = viewModelScope.launch {

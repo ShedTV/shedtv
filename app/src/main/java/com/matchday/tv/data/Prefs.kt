@@ -21,8 +21,11 @@ data class Subscription(
     val userAgent: String = UserAgents.DEFAULT,
     /** "ts" (MPEG-TS) or "m3u8" (HLS). */
     val streamFormat: String = "ts",
+    /** True for an M3U playlist (server holds the playlist address). */
+    val playlist: Boolean = false,
+    val epgUrl: String = "",
 ) {
-    val credentials get() = Credentials(server, username, password)
+    val credentials get() = Credentials(server, username, password, playlist, epgUrl)
     val host: String get() = server.removePrefix("http://").removePrefix("https://").substringBefore('/')
 }
 
@@ -66,6 +69,8 @@ class Prefs(context: Context) {
                     password = o.s("password").orEmpty(),
                     userAgent = o.s("userAgent")?.ifBlank { null } ?: UserAgents.DEFAULT,
                     streamFormat = o.s("streamFormat") ?: "ts",
+                    playlist = o.s("playlist") == "true",
+                    epgUrl = o.s("epgUrl").orEmpty(),
                 )
             }
         } catch (e: Exception) {
@@ -78,6 +83,7 @@ class Prefs(context: Context) {
                         put("id", s.id); put("name", s.name); put("server", s.server)
                         put("username", s.username); put("password", s.password)
                         put("userAgent", s.userAgent); put("streamFormat", s.streamFormat)
+                        put("playlist", s.playlist.toString()); put("epgUrl", s.epgUrl)
                     })
                 }
             }
@@ -87,6 +93,11 @@ class Prefs(context: Context) {
     var mergeQualities: Boolean
         get() = sp.getBoolean("mergeQualities", false)
         set(value) = sp.edit().putBoolean("mergeQualities", value).apply()
+
+    /** "off", "menus" or "always". */
+    var clock: String
+        get() = sp.getString("clock", "off") ?: "off"
+        set(value) = sp.edit().putString("clock", value).apply()
 
     var downloadFolder: String?
         get() = sp.getString("downloadFolder", null)

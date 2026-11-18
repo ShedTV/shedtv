@@ -233,6 +233,13 @@ fun SettingsScreen(vm: AppViewModel) {
 
             // ---- Look ----
             Spacer(Modifier.height(2.dp))
+            Heading("Clock", "A small clock in the top-right corner.")
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Chip("Off", selected = vm.clockMode == "off") { vm.chooseClock("off") }
+                Chip("Menus only", selected = vm.clockMode == "menus") { vm.chooseClock("menus") }
+                Chip("Everywhere, including while watching", selected = vm.clockMode == "always") { vm.chooseClock("always") }
+            }
+            Spacer(Modifier.height(2.dp))
             Heading("Animations", "Fades and slides between screens. Turn off if anything feels slow.")
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Chip("On", selected = vm.animations) { vm.setAnimationsEnabled(true) }

@@ -98,6 +98,10 @@ private fun App(vm: AppViewModel = viewModel()) {
         }
     ) {
         Screens(vm)
+        val playing = vm.screen == Screen.Player || vm.screen == Screen.VodPlayer || vm.screen == Screen.Catchup || vm.screen == Screen.RecordingPlayer
+        if (vm.clockMode == "always" || (vm.clockMode == "menus" && !playing)) {
+            com.matchday.tv.ui.ScreenClock(Modifier.align(Alignment.TopEnd).padding(top = 14.dp, end = 22.dp))
+        }
         val flash = vm.flash
         LaunchedEffect(flash) { if (flash != null) { delay(5_000); vm.flash = null } }
         if (flash != null) {

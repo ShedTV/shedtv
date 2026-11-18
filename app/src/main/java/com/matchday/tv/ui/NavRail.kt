@@ -85,7 +85,7 @@ fun NavRail(vm: AppViewModel, current: Screen) {
     ) {
         ShedMark(38.dp)
         Spacer(Modifier.height(6.dp))
-        (railItems.take(railItems.size - 2) +
+        (railItems.filter { vm.activeSubscription?.playlist != true || (it.screen != Screen.Movies && it.screen != Screen.Series) }.let { it.take(it.size - 2) } +
             (if (com.matchday.tv.download.DownloadManager.items.isNotEmpty()) listOf(RailItem("Downloads", Icons.DOWNLOAD, Screen.Downloads)) else emptyList()) +
             (if (vm.recordingEnabled) listOf(RailItem("Recordings", Icons.REC, Screen.Recordings)) else emptyList()) +
             railItems.takeLast(2)).forEach { item ->

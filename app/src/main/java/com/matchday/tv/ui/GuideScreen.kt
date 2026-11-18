@@ -144,7 +144,21 @@ fun GuideScreen(vm: AppViewModel) {
         if (lookingBack) channels.subList((row - 4).coerceAtLeast(0), (row + 8).coerceAtMost(channels.size)).forEach { vm.loadArchiveEpg(it) }
     }
 
-    BackHandler { vm.navigate(Screen.Sport) }
+    // Back: from earlier programmes to now, then to the categories, then out of the guide.
+    BackHandler {
+        when {
+            windowStart < floorHalfHour(System.currentTimeMillis()) -> {
+                windowStart = floorHalfHour(System.currentTimeMillis()); anchor = System.currentTimeMillis()
+            }
+            !catsOpen -> catsOpen = true
+            else -> vm.navigate(Screen.Sport)
+        }
+    }
+    fun lookBack() {
+        windowStart = (floorHalfHour(System.currentTimeMillis()) - WINDOW).coerceAtLeast(earliest)
+        anchor = windowStart + HALF_HOUR
+        runCatching { gridFocus.requestFocus() }
+    }
     PreviewFollower(vm, selectedChannel)
 
     // Options for the highlighted programme: hold OK (any remote) or ☰.
@@ -182,7 +196,11 @@ fun GuideScreen(vm: AppViewModel) {
         ) {
         Column(Modifier.width(170.dp).fillMaxHeight().padding(start = 8.dp, top = 22.dp)) {
             Text("GUIDE", color = Palette.Text, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, fontSize = 22.sp, letterSpacing = 1.sp,
-                modifier = Modifier.padding(start = 8.dp, bottom = 10.dp))
+                modifier = Modifier.padding(start = 8.dp, bottom = 6.dp))
+            FocusTile(onClick = { vm.navigate(Screen.Categories) }, corner = 8.dp, focusedScale = 1.04f, modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)) {
+                Text("⚙  Manage categories", fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.background(Color(0x14FFFFFF), RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 6.dp))
+            }
             val cats = vm.categoryList.filter { it.id == vm.selectedCategoryId || vm.channelCount(it.id) > 0 }
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -193,6 +211,7 @@ fun GuideScreen(vm: AppViewModel) {
                     val isSel = c.id == vm.selectedCategoryId
                     FocusTile(
                         onClick = { vm.selectCategory(c.id); runCatching { gridFocus.requestFocus() } },
+                        onLongClick = { vm.navigate(Screen.Categories) },
                         selected = isSel, corner = 8.dp, focusedScale = 1.03f,
                         modifier = Modifier.fillMaxWidth()
                             .then(if (isSel) Modifier.focusRequester(catFocus) else Modifier)
@@ -268,7 +287,7 @@ fun GuideScreen(vm: AppViewModel) {
                                     val prev = blocks.lastOrNull { it.end <= cur.start }
                                     when {
                                         // At the left edge of the present: step out to the category list.
-                                        cur.start <= windowStart && windowStart <= floorHalfHour(now) && !(ch.hasArchive && windowStart > earliest) -> { catsOpen = true; true }
+                                        cur.start <= windowStart && windowStart >= floorHalfHour(now) -> { catsOpen = true; true }
                                         cur.start < windowStart && windowStart > earliest -> {
                                             windowStart -= HALF_HOUR
                                             anchor = maxOf(cur.start, windowStart)
@@ -280,7 +299,7 @@ fun GuideScreen(vm: AppViewModel) {
                                             if (anchor < windowStart) windowStart = maxOf(earliest, floorHalfHour(anchor))
                                             true
                                         }
-                                        else -> false // let focus move out to the menu
+                                        else -> { catsOpen = true; true } // as far back as it goes
                                     }
                                 }
                                 // Up from the top row moves to the category switcher.
@@ -391,6 +410,8 @@ fun GuideScreen(vm: AppViewModel) {
                         entry != null && entry.start > t -> add(MenuAction("●  Record (next update)") { record(ch, entry) })
                     }
                 }
+                if (ch.hasArchive && windowStart >= floorHalfHour(t)) add(MenuAction("⟲  Earlier programmes (catch-up)") { lookBack() })
+                if (windowStart < floorHalfHour(t)) add(MenuAction("▶  Back to now") { windowStart = floorHalfHour(System.currentTimeMillis()); anchor = System.currentTimeMillis() })
                 add(MenuAction(if (vm.isFavourite(ch)) "★  Remove from favourites" else "☆  Add to favourites") { vm.toggleFavourite(ch) })
                 add(MenuAction("☰  Change category") { catsOpen = true })
             }

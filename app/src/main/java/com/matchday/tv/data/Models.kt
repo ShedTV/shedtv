@@ -4,6 +4,10 @@ data class Credentials(
     val server: String,
     val username: String,
     val password: String,
+    /** An M3U playlist: [server] is the playlist's address; no username or password. */
+    val playlist: Boolean = false,
+    /** Guide (XMLTV) address for a playlist; blank uses the playlist's own, if it names one. */
+    val epgUrl: String = "",
 )
 
 data class AccountInfo(
@@ -33,6 +37,8 @@ data class Channel(
     val subId: String? = null,
     /** How many days of catch-up the provider keeps for this channel. */
     val archiveDays: Int = 0,
+    /** Playlist channels: the stream's own address. */
+    val directUrl: String? = null,
 ) {
     /** Unique across subscriptions (two providers can use the same stream number). */
     val uid: String get() = (subId ?: "") + ":" + streamId
