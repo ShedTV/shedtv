@@ -533,7 +533,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         else allChannels.filter { it.categoryId !in hidden || it.streamId in favourites }
         // Locked categories stay out of every list, search and Home until the PIN is entered.
         if (!pinSet || unlocked || (lockedCategories.isEmpty() && !lockAdult)) base
-        else base.filter { !isLocked(it.categoryId) }
+        else base.filter { !isLocked(it.categoryId.orEmpty()) }
     }
 
     /** Show one entry per channel instead of every UHD/FHD/HD/SD version. */
