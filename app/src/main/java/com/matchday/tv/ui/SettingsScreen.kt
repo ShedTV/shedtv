@@ -4,6 +4,8 @@ package com.matchday.tv.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,38 +47,122 @@ import com.matchday.tv.Screen
 import com.matchday.tv.data.UserAgents
 import kotlinx.coroutines.delay
 
+private enum class SettingsTab(val label: String, val icon: String, val blurb: String) {
+    Subs("Subscriptions", "⌂", "Your TV services and how ShedTV talks to them"),
+    Tv("TV & guide", "▦", "Channel lists, the guide and the preview window"),
+    Playback("Playback", "▶", "Rewind, subtitles and picture"),
+    Saving("Recording & downloads", "●", "Recording live TV and saving films for offline"),
+    Display("Display", "◐", "Clock and animations"),
+    About("About & updates", "ⓘ", "Version, updates and licences"),
+}
+
 @Composable
 fun SettingsScreen(vm: AppViewModel) {
-    val active = vm.activeSubscription
-    val firstFocus = remember { FocusRequester() }
-    var confirmRemove by remember { mutableStateOf<String?>(null) }
-    var customUa by rememberSaveable(active?.id) { mutableStateOf(active?.userAgent.orEmpty()) }
-    LaunchedEffect(Unit) { delay(100); runCatching { firstFocus.requestFocus() } }
-    BackHandler { vm.navigate(Screen.Sport) }
+    var tab by rememberSaveable { mutableStateOf(SettingsTab.Subs) }
+    val tabFocus = remember { FocusRequester() }
+    var inContent by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { delay(100); runCatching { tabFocus.requestFocus() } }
+    BackHandler {
+        if (inContent) runCatching { tabFocus.requestFocus() } else vm.navigate(Screen.Sport)
+    }
 
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, Screen.Settings)
+        // Tabs
+        Column(Modifier.width(250.dp).fillMaxHeight().padding(start = 24.dp, top = 22.dp, end = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("SETTINGS", color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp,
+                modifier = Modifier.padding(start = 6.dp, bottom = 10.dp))
+            SettingsTab.entries.forEach { t ->
+                val sel = t == tab
+                FocusTile(
+                    onClick = { tab = t; },
+                    selected = sel, corner = 10.dp, focusedScale = 1.03f,
+                    modifier = Modifier.fillMaxWidth()
+                        .then(if (sel) Modifier.focusRequester(tabFocus) else Modifier)
+                        .onFocusChanged { if (it.isFocused) tab = t },
+                ) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(t.icon, fontSize = 16.sp, modifier = Modifier.width(28.dp))
+                        Text(t.label, fontSize = 15.sp, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+            Spacer(Modifier.weight(1f))
+            Text("Up and down to pick a section, then right to change its settings. Back returns here.", color = Palette.TextMuted, fontSize = 11.sp,
+                modifier = Modifier.padding(start = 6.dp, bottom = 24.dp))
+        }
+        // Content
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 32.dp, end = 32.dp, top = 20.dp, bottom = 72.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.fillMaxSize().onFocusChanged { inContent = it.hasFocus }
+                .verticalScroll(rememberScrollState()).padding(start = 22.dp, end = 40.dp, top = 26.dp, bottom = 72.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text("SETTINGS", color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
+            Column {
+                Text(tab.label.uppercase(), color = Palette.Accent, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
+                Text(tab.blurb, color = Palette.TextSoft, fontSize = 14.sp)
+            }
             vm.error?.let { Text(it, color = Palette.Live, fontSize = 14.sp) }
+            when (tab) {
+                SettingsTab.Subs -> SubscriptionSettings(vm)
+                SettingsTab.Tv -> TvSettings(vm)
+                SettingsTab.Playback -> PlaybackSettings(vm)
+                SettingsTab.Saving -> SavingSettings(vm)
+                SettingsTab.Display -> DisplaySettings(vm)
+                SettingsTab.About -> AboutSettings(vm)
+            }
+        }
+    }
+}
 
-            // ---- Subscriptions ----
-            Heading("Subscriptions", "OK to switch  ·  Hold OK to edit")
-            vm.subscriptions.forEachIndexed { i, sub ->
+/** One setting: a title, a plain-English explanation, what it costs (speed, storage, connections), then its controls. */
+@Composable
+private fun Setting(title: String, body: String, impact: String? = null, controls: @Composable () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().background(Palette.Card.copy(alpha = 0.55f), RoundedCornerShape(14.dp)).padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(title, color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        Text(body, color = Palette.TextSoft, fontSize = 13.sp)
+        if (impact != null) Text("ⓘ  $impact", color = Palette.TextMuted, fontSize = 12.sp)
+        Spacer(Modifier.height(2.dp))
+        controls()
+    }
+}
+
+@Composable
+private fun OnOff(on: Boolean, onText: String = "On", offText: String = "Off", set: (Boolean) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Chip(onText, selected = on) { set(true) }
+        Chip(offText, selected = !on) { set(false) }
+    }
+}
+
+@Composable
+private fun SubscriptionSettings(vm: AppViewModel) {
+    val active = vm.activeSubscription
+    var confirmRemove by remember { mutableStateOf<String?>(null) }
+    var editingUa by remember { mutableStateOf(false) }
+    var customUa by rememberSaveable(active?.id) { mutableStateOf(active?.userAgent.orEmpty()) }
+
+    Setting(
+        "Your subscriptions",
+        "The TV services ShedTV signs in to. OK switches to one; hold OK on one to edit it. Favourites, history, hidden categories and category order are kept separately for each.",
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            vm.subscriptions.forEach { sub ->
                 val isActive = sub.id == active?.id
                 FocusTile(
                     onClick = { vm.switchSubscription(sub) },
                     onLongClick = { vm.startEditSubscription(sub) },
                     selected = isActive, corner = 12.dp, focusedScale = 1.02f,
-                    modifier = Modifier.width(620.dp).then(if (i == 0) Modifier.focusRequester(firstFocus) else Modifier),
+                    modifier = Modifier.width(620.dp),
                 ) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(sub.name, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                            Text("${sub.host}  ·  ${sub.username}" + (if (!isActive && vm.useBackups) vm.backups[sub.id]?.status?.let { "  ·  $it" }.orEmpty() else ""), fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(sub.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            val kind = if (sub.playlist) "M3U playlist" else "${sub.host}  ·  ${sub.username}"
+                            Text(kind + (if (!isActive && vm.useBackups) vm.backups[sub.id]?.status?.let { "  ·  $it" }.orEmpty() else ""),
+                                fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                         if (isActive) Text("IN USE", fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                     }
@@ -91,35 +177,40 @@ fun SettingsScreen(vm: AppViewModel) {
                     }
                 }
             }
+        }
+    }
 
-            if (vm.subscriptions.size > 1) {
-                Spacer(Modifier.height(2.dp))
-                Heading("Use other subscriptions as backup", "If a channel fails, try the same channel on your other subscriptions. Search also covers them.")
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Chip("On", selected = vm.useBackups) { vm.turnBackups(true) }
-                    Chip("Off", selected = !vm.useBackups) { vm.turnBackups(false) }
+    if (vm.subscriptions.size > 1) {
+        Setting(
+            "Use other subscriptions as backup",
+            "If a channel won't play, ShedTV tries the same channel on your other subscriptions, and search shows their channels and films too.",
+            "Their channel lists load in the background when ShedTV opens, which takes a little longer on slow boxes. No extra connections are used until a backup actually plays.",
+        ) { OnOff(vm.useBackups) { vm.turnBackups(it) } }
+    }
+
+    if (active != null) {
+        Setting(
+            "User agent for ${active.name}",
+            "The name ShedTV gives your provider when it connects, the way a web browser says which browser it is. Leave it on Android device unless your provider blocks apps or asks for a particular player. Currently: ${UserAgents.labelFor(active.userAgent)}.",
+            "Takes effect from the next channel you open. No effect on speed.",
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                UserAgents.presets.forEach { p ->
+                    Chip(p.label, selected = active.userAgent == p.value) { vm.updateActive(userAgent = p.value); customUa = p.value; editingUa = false }
                 }
+                Chip("Custom…", selected = UserAgents.labelFor(active.userAgent) == "Custom") { editingUa = true }
             }
-
-            if (active != null) {
-                // ---- User agent ----
-                Spacer(Modifier.height(2.dp))
-                Heading("User agent for ${active.name}", "The name ShedTV gives your provider. Currently: ${UserAgents.labelFor(active.userAgent)}")
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    UserAgents.presets.forEach { p ->
-                        Chip(p.label, selected = active.userAgent == p.value) {
-                            vm.updateActive(userAgent = p.value)
-                            customUa = p.value
-                        }
-                    }
-                }
+            if (editingUa) {
+                // The text box only appears when asked for, so scrolling past never pops up the keyboard.
+                val field = remember { FocusRequester() }
+                LaunchedEffect(Unit) { delay(80); runCatching { field.requestFocus() } }
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
                         value = customUa, onValueChange = { customUa = it }, singleLine = true,
                         label = { androidx.compose.material3.Text("Custom user agent") },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, autoCorrectEnabled = false),
-                        keyboardActions = KeyboardActions(onDone = { vm.updateActive(userAgent = customUa) }),
-                        modifier = Modifier.width(520.dp),
+                        keyboardActions = KeyboardActions(onDone = { vm.updateActive(userAgent = customUa); editingUa = false }),
+                        modifier = Modifier.width(480.dp).focusRequester(field),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Palette.Text, unfocusedTextColor = Palette.Text,
                             focusedBorderColor = Palette.Accent, unfocusedBorderColor = Palette.TextMuted,
@@ -127,139 +218,168 @@ fun SettingsScreen(vm: AppViewModel) {
                             focusedContainerColor = Palette.Card, unfocusedContainerColor = Palette.Card,
                         ),
                     )
-                    Chip("Use this") { vm.updateActive(userAgent = customUa) }
+                    Chip("Use this") { vm.updateActive(userAgent = customUa); editingUa = false }
+                    Chip("Cancel") { editingUa = false; customUa = active.userAgent }
                 }
-                Text("Applies to channel lists, the TV guide and streams. Takes effect on the next channel you open.", color = Palette.TextMuted, fontSize = 12.sp)
+            }
+        }
 
-                // ---- Playback ----
-                Spacer(Modifier.height(2.dp))
-                Heading("Categories", "${vm.hiddenCategories.size} hidden. Hidden categories stay out of Live TV, the guide and search.")
-                Chip("Manage categories") { vm.navigate(Screen.Categories) }
-
-                Spacer(Modifier.height(2.dp))
-                Heading("One entry per channel", "Hides UHD, FHD, HD and SD duplicates and plays the best one. Press ▶▶ while watching live to try another version.")
+        if (!active.playlist) {
+            Setting(
+                "Stream format",
+                "How live channels are sent to ShedTV. MPEG-TS starts quickest and works with live rewind and recording, so it's the best choice for most people. Try HLS only if some channels won't play.",
+                "With HLS, live rewind is unavailable. No difference in picture quality.",
+            ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Chip("On", selected = vm.mergeQualities) { vm.setMergeQualitiesEnabled(true) }
-                    Chip("Off", selected = !vm.mergeQualities) { vm.setMergeQualitiesEnabled(false) }
-                }
-
-                Spacer(Modifier.height(2.dp))
-                Heading("Stream format", "Try HLS if some channels won't play")
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Chip("MPEG-TS", selected = vm.streamFormat == "ts") { vm.updateActive(streamFormat = "ts") }
+                    Chip("MPEG-TS (recommended)", selected = vm.streamFormat == "ts") { vm.updateActive(streamFormat = "ts") }
                     Chip("HLS (m3u8)", selected = vm.streamFormat == "m3u8") { vm.updateActive(streamFormat = "m3u8") }
                 }
-
-                Spacer(Modifier.height(2.dp))
-                Heading("Live rewind", "Pause and rewind live TV, up to about 30 minutes. Uses up to 1.5 GB of storage while watching. MPEG-TS format only.")
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Chip("On", selected = vm.liveRewind) { vm.setLiveRewindEnabled(true) }
-                    Chip("Off", selected = !vm.liveRewind) { vm.setLiveRewindEnabled(false) }
-                }
-
-                Spacer(Modifier.height(2.dp))
-                Heading("TV guide", vm.guideStatus ?: "Refreshes every 8 hours")
-                Chip("Refresh guide now") { vm.loadGuide(force = true) }
             }
-
-            // ---- Downloads ----
-            Spacer(Modifier.height(2.dp))
-            Heading("Downloads", "Films and episodes to watch offline. Hold OK on an episode, or use Download on a film or season.")
-            val ctx = androidx.compose.ui.platform.LocalContext.current
-            val picker = androidx.activity.compose.rememberLauncherForActivityResult(
-                androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree(),
-            ) { uri -> if (uri != null) vm.pickedDownloadFolder(uri) }
-            val canPick = remember {
-                android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT_TREE).resolveActivity(ctx.packageManager) != null
-            }
-            val current = vm.downloadFolder()
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                com.matchday.tv.download.DownloadManager.volumes().forEach { v ->
-                    Chip("${v.label} · %.1f GB free".format(v.freeBytes / 1073741824.0), selected = current == v.dir.path) { vm.setDownloadFolder(v.dir.path) }
-                }
-                if (current?.startsWith("content://") == true) {
-                    Chip("Folder: " + com.matchday.tv.download.DownloadManager.folderName(current), selected = true) { }
-                }
-                if (canPick) Chip("Choose folder…") { runCatching { picker.launch(null) }.onFailure { vm.flash = "This device doesn't have a folder picker." } }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Chip("Wi-Fi only", selected = vm.downloadWifiOnly) { vm.turnDownloadWifiOnly(true) }
-                Chip("Any connection", selected = !vm.downloadWifiOnly) { vm.turnDownloadWifiOnly(false) }
-            }
-            Text(
-                "ShedTV's own folders are removed if ShedTV is uninstalled. A chosen folder keeps your files, and other apps such as VLC can play them. Downloads use one connection and pause while you watch on a one-connection subscription.",
-                color = Palette.TextMuted, fontSize = 11.sp,
-            )
-
-            // ---- Recording ----
-            Spacer(Modifier.height(2.dp))
-            Heading("Recording", "Off by default. Records to this device or a USB drive, and keeps going through glitches by switching source.")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Chip("On", selected = vm.recordingEnabled) { vm.turnRecording(true) }
-                Chip("Off", selected = !vm.recordingEnabled) { vm.turnRecording(false) }
-            }
-            if (vm.recordingEnabled) {
-                val vols = com.matchday.tv.record.RecorderManager.volumes()
-                val chosen = vm.recordingVolume()
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    vols.forEach { v ->
-                        Chip("${v.label} · %.1f GB free".format(v.freeBytes / 1073741824.0), selected = chosen?.dir == v.dir) { vm.chooseRecordingVolume(v) }
-                    }
-                }
-                val free = chosen?.freeBytes ?: 0
-                if (free < 16L * 1024 * 1024 * 1024) {
-                    Text(
-                        "⚠ Only %.1f GB free here: about %d hour(s) of HD sport at roughly 3 GB per hour. Fire Sticks have very little space; a Shield or box with a USB drive is much better for recording."
-                            .format(free / 1073741824.0, free / com.matchday.tv.record.RecorderManager.BYTES_PER_HOUR),
-                        color = Palette.Live, fontSize = 12.sp,
-                    )
-                }
-                Text("Recordings on a USB drive are kept in ShedTV's own folder there, and are removed if ShedTV is uninstalled.", color = Palette.TextMuted, fontSize = 11.sp)
-            }
-
-            // ---- Preview and display ----
-            Spacer(Modifier.height(2.dp))
-            Heading("Preview window", "Plays the highlighted channel, muted, in Live TV and the guide. Uses your one connection, and carries on into full screen when you press OK.")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Chip("On", selected = vm.previewEnabled) { vm.turnPreview(true) }
-                Chip("Off", selected = !vm.previewEnabled) { vm.turnPreview(false) }
-            }
-            Spacer(Modifier.height(2.dp))
-            Heading("Stay at 50Hz", "Switches the TV to 50Hz once when ShedTV opens, so going full screen and back doesn't blank. 60fps channels still switch. Needs Match Original Frame Rate on in Fire TV settings.")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Chip("On", selected = vm.stay50Hz) { vm.setStay50HzEnabled(true) }
-                Chip("Off", selected = !vm.stay50Hz) { vm.setStay50HzEnabled(false) }
-            }
-
-            // ---- Look ----
-            Spacer(Modifier.height(2.dp))
-            Heading("Clock", "A small clock in the top-right corner.")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Chip("Off", selected = vm.clockMode == "off") { vm.chooseClock("off") }
-                Chip("Menus only", selected = vm.clockMode == "menus") { vm.chooseClock("menus") }
-                Chip("Everywhere, including while watching", selected = vm.clockMode == "always") { vm.chooseClock("always") }
-            }
-            Spacer(Modifier.height(2.dp))
-            Heading("Animations", "Fades and slides between screens. Turn off if anything feels slow.")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Chip("On", selected = vm.animations) { vm.setAnimationsEnabled(true) }
-                Chip("Off", selected = !vm.animations) { vm.setAnimationsEnabled(false) }
-            }
-
-            // ---- App updates ----
-            Spacer(Modifier.height(2.dp))
-            Heading("App update", vm.updater.status ?: "ShedTV ${vm.updater.versionName}")
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Chip(if (vm.updater.busy) "Working…" else "Check for updates") { vm.updater.check(silent = false) }
-                if (vm.updater.available) Chip("Install build ${vm.updater.latestBuild}", selected = true) { vm.updater.install() }
-            }
-            if (!vm.updater.canInstall) {
-                Text("Before the first in-app update, Fire TV needs to allow ShedTV to install apps. Install will open that switch for you.",
-                    color = Palette.TextMuted, fontSize = 12.sp)
-            }
-            Text("Fonts: Barlow Condensed and Inter, used under the SIL Open Font License 1.1 (full text included in the app).",
-                color = Palette.TextMuted, fontSize = 11.sp, modifier = Modifier.padding(top = 10.dp))
         }
+    }
+}
+
+@Composable
+private fun TvSettings(vm: AppViewModel) {
+    Setting(
+        "Categories",
+        "Hide categories you never use and put the rest in the order you like. Hidden categories also stay out of the guide and search. ${vm.hiddenCategories.size} hidden at the moment. Shortcut: hold OK on any category in Live TV or the guide.",
+        "Hiding categories you don't watch makes the guide and channel lists quicker on slower boxes.",
+    ) { Chip("Manage categories") { vm.navigate(Screen.Categories) } }
+
+    Setting(
+        "One entry per channel",
+        "Many providers list each channel several times (UHD, FHD, HD and SD). With this on you see each channel once, ShedTV plays the best version, and it switches to another version by itself if one fails. Press ▶▶ while watching to try the next version.",
+        "No effect on speed; channel lists are shorter and easier to scroll.",
+    ) { OnOff(vm.mergeQualities) { vm.setMergeQualitiesEnabled(it) } }
+
+    Setting(
+        "Preview window",
+        "Plays the highlighted channel, muted, in a small window in Live TV and the guide. Press OK and it carries on full screen without restarting.",
+        "Uses your connection while you browse, and on a Fire Stick moving between channels can feel a little slower. On one-connection subscriptions, downloads pause while it plays.",
+    ) { OnOff(vm.previewEnabled) { vm.turnPreview(it) } }
+
+    if (vm.activeSubscription != null) {
+        Setting(
+            "TV guide",
+            (vm.guideStatus ?: "The guide is up to date.") + " It refreshes itself every 8 hours; refresh it now if listings look out of date.",
+            "A refresh downloads the whole guide, which can take up to a minute on big providers. You can keep watching while it does.",
+        ) { Chip("Refresh guide now") { vm.loadGuide(force = true) } }
+    }
+}
+
+@Composable
+private fun PlaybackSettings(vm: AppViewModel) {
+    Setting(
+        "Live rewind",
+        "Keeps up to the last 30 minutes of the channel you're watching, so you can pause live TV and rewind. It starts from the moment you tune in.",
+        "Uses up to 1.5 GB of storage while you watch, freed when you stop. On a nearly full Fire Stick, leave it off. MPEG-TS stream format only.",
+    ) { OnOff(vm.liveRewind) { vm.setLiveRewindEnabled(it) } }
+
+    Setting(
+        "Subtitles",
+        "Shows subtitles when a channel, film or episode includes them. You can also change this while watching: hold OK (or press ☰) for subtitles and audio.",
+        "No effect on speed. Not every channel broadcasts subtitles.",
+    ) { OnOff(vm.subtitlesEnabled, "On when available", "Off") { vm.setSubtitlePref(it, null) } }
+
+    Setting(
+        "Stay at 50Hz",
+        "UK TV runs at 50 frames a second. Many TVs blank for a second whenever the frame rate changes, for example going full screen. With this on, ShedTV switches the TV to 50Hz once when it opens, so it doesn't blank again. Channels at 60 frames a second still switch.",
+        "No effect on speed. Needs \"Match original frame rate\" (or similar) turned on in your device's display settings.",
+    ) { OnOff(vm.stay50Hz) { vm.setStay50HzEnabled(it) } }
+}
+
+@Composable
+private fun SavingSettings(vm: AppViewModel) {
+    Setting(
+        "Recording",
+        "Record live TV from the player or the guide (hold OK, or press ☰). If the stream glitches, ShedTV keeps going: it reconnects, tries another version of the channel, then your other subscriptions, and notes any gaps.",
+        "Uses about 3 GB per hour of HD. Recording uses a connection, so on one-connection subscriptions you can only watch what's being recorded. Works best on a Shield or box with a USB drive.",
+    ) {
+        OnOff(vm.recordingEnabled) { vm.turnRecording(it) }
+        if (vm.recordingEnabled) {
+            val chosen = vm.recordingVolume()
+            Text("Save recordings to:", color = Palette.TextSoft, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                com.matchday.tv.record.RecorderManager.volumes().forEach { v ->
+                    Chip("${v.label} · %.1f GB free".format(v.freeBytes / 1073741824.0), selected = chosen?.dir == v.dir) { vm.chooseRecordingVolume(v) }
+                }
+            }
+            val free = chosen?.freeBytes ?: 0
+            if (free < 16L * 1024 * 1024 * 1024) {
+                Text("⚠ Only %.1f GB free here: about %d hour(s) of HD.".format(free / 1073741824.0, free / com.matchday.tv.record.RecorderManager.BYTES_PER_HOUR),
+                    color = Palette.Live, fontSize = 12.sp)
+            }
+            Text("Recordings are kept in ShedTV's own folder and are removed if ShedTV is uninstalled.", color = Palette.TextMuted, fontSize = 12.sp)
+        }
+    }
+
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val picker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocumentTree(),
+    ) { uri -> if (uri != null) vm.pickedDownloadFolder(uri) }
+    val canPick = remember { android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT_TREE).resolveActivity(ctx.packageManager) != null }
+    val current = vm.downloadFolder()
+    Setting(
+        "Downloads",
+        "Save films and episodes to watch without the internet, such as on a plane. Use Download on a film or season, or hold OK on an episode. With no internet, ShedTV opens straight to your downloads.",
+        "One download at a time, using one connection; on one-connection subscriptions downloads pause while you watch. A film is usually 1 to 4 GB.",
+    ) {
+        Text("Save downloads to:", color = Palette.TextSoft, fontSize = 13.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            com.matchday.tv.download.DownloadManager.volumes().forEach { v ->
+                Chip("${v.label} · %.1f GB free".format(v.freeBytes / 1073741824.0), selected = current == v.dir.path) { vm.setDownloadFolder(v.dir.path) }
+            }
+            if (current?.startsWith("content://") == true) Chip("Folder: " + com.matchday.tv.download.DownloadManager.folderName(current), selected = true) { }
+            if (canPick) Chip("Choose folder…") { runCatching { picker.launch(null) }.onFailure { vm.flash = "This device doesn't have a folder picker." } }
+        }
+        Text("ShedTV's own folders are removed if ShedTV is uninstalled. A folder you choose keeps your files, and other apps such as VLC can play them.",
+            color = Palette.TextMuted, fontSize = 12.sp)
+        Text("Download over:", color = Palette.TextSoft, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+        OnOff(vm.downloadWifiOnly, "Wi-Fi only", "Any connection") { vm.turnDownloadWifiOnly(it) }
+        Text("Wi-Fi only stops phones using mobile data. TV boxes are always treated as Wi-Fi.", color = Palette.TextMuted, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun DisplaySettings(vm: AppViewModel) {
+    Setting(
+        "Clock",
+        "A small clock in the top-right corner of the screen. Choose whether it also shows while you're watching.",
+        "No effect on speed.",
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Chip("Off", selected = vm.clockMode == "off") { vm.chooseClock("off") }
+            Chip("Menus only", selected = vm.clockMode == "menus") { vm.chooseClock("menus") }
+            Chip("Everywhere, including while watching", selected = vm.clockMode == "always") { vm.chooseClock("always") }
+        }
+    }
+    Setting(
+        "Animations",
+        "Gentle fades and slides when moving between screens.",
+        "Turning them off makes screen changes instant, which can feel snappier on a Fire Stick or older box.",
+    ) { OnOff(vm.animations) { vm.setAnimationsEnabled(it) } }
+}
+
+@Composable
+private fun AboutSettings(vm: AppViewModel) {
+    Setting(
+        "App update",
+        (vm.updater.status ?: "You have ShedTV ${vm.updater.versionName} (build ${vm.updater.currentBuild}).") +
+            " ShedTV checks for new versions when it opens; you can also check now. Updates keep all your settings, subscriptions and favourites.",
+        if (!vm.updater.canInstall) "The first time, your device needs to allow ShedTV to install apps. Install opens that switch for you." else null,
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Chip(if (vm.updater.busy) "Working…" else "Check for updates") { vm.updater.check(silent = false) }
+            if (vm.updater.available) Chip("Install build ${vm.updater.latestBuild}", selected = true) { vm.updater.install() }
+        }
+    }
+    Setting(
+        "About ShedTV",
+        "ShedTV is a free player. It doesn't provide any channels or content: you sign in with a TV service you're entitled to use. Install guides and news: shedtv.app",
+    ) {
+        Text("Fonts: Barlow Condensed and Inter, used under the SIL Open Font License 1.1 (full text included in the app).",
+            color = Palette.TextMuted, fontSize = 11.sp)
     }
 }
 

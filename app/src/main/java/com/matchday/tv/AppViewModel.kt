@@ -357,7 +357,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---------- Subtitles ----------
-    private var subtitlesOn = prefs.subtitles
+    private var subtitlesOn by mutableStateOf(prefs.subtitles)
+    val subtitlesEnabled: Boolean get() = subtitlesOn
     private var subtitleLang = prefs.subtitleLanguage
 
     fun setSubtitlePref(on: Boolean, language: String?) {
