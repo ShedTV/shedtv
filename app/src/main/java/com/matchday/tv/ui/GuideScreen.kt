@@ -287,9 +287,13 @@ fun GuideScreen(vm: AppViewModel) {
                                 }
                                 AndroidKeyEvent.KEYCODE_DPAD_LEFT -> {
                                     val prev = blocks.lastOrNull { it.end <= cur.start }
+                                    val lookingBack = windowStart < floorHalfHour(now)
                                     when {
-                                        // At the left edge of the present: step out to the category list.
-                                        cur.start <= windowStart && windowStart >= floorHalfHour(now) -> { catsOpen = true; true }
+                                        // In the present, Left stops at the "now" line: anything that has
+                                        // already finished is only reached on purpose (◀◀, or hold OK →
+                                        // Earlier programmes), so Left always gets back to the categories.
+                                        !lookingBack && (prev == null || prev.end <= now) -> { catsOpen = true; true }
+                                        !lookingBack -> { anchor = maxOf(prev!!.start, now); true }
                                         cur.start < windowStart && windowStart > earliest -> {
                                             windowStart -= HALF_HOUR
                                             anchor = maxOf(cur.start, windowStart)
@@ -463,7 +467,7 @@ private fun GuideHeader(vm: AppViewModel, channel: Channel?, block: Block?, now:
             val cat = vm.categoryList.firstOrNull { it.id == vm.selectedCategoryId }?.name.orEmpty()
             Text(categoryLabel(cat), color = Palette.Accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             vm.guideStatus?.let { Text(it, color = Palette.TextMuted, fontSize = 12.sp, maxLines = 2) }
-            Text("◀ at now: categories  ·  ◀◀ ▶▶ 2 hrs", color = Palette.TextMuted, fontSize = 11.sp)
+            Text("◀ at now: categories  ·  hold OK: options" + if (channel?.hasArchive == true) " & catch-up" else "", color = Palette.TextMuted, fontSize = 11.sp)
         }
     }
 }
