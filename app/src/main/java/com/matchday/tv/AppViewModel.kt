@@ -1033,7 +1033,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun setMenuShown(id: String, shown: Boolean) {
         val next = if (shown) menuHidden - id else menuHidden + id
         // Always keep at least one section.
-        if (mainScreens.values.count { it !in next && it != "downloads" && it != "recordings" } == 0) { flash = "Keep at least one section in the menu."; return }
+        if (mainScreens.values.count { it !in next && it != "recordings" } == 0) { flash = "Keep at least one section in the menu."; return }
         menuHidden = next
         prefs.menuHidden = next
     }
@@ -1066,8 +1066,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun homeBase(): Screen {
         val id = if (startScreen == "last") prefs.lastScreen ?: "home" else startScreen
         val s = screenFor(id)
-        if (s != null && id !in menuHidden && s != Screen.Downloads && s != Screen.Recordings) return s
-        return orderedMenu().firstOrNull { it !in menuHidden && it != "downloads" && it != "recordings" }?.let { screenFor(it) } ?: Screen.Home
+        if (s != null && id !in menuHidden && s != Screen.Recordings) return s
+        return orderedMenu().firstOrNull { it !in menuHidden && it != "recordings" }?.let { screenFor(it) } ?: Screen.Home
     }
 
     /** Set when Back is pressed on the start screen: the activity closes. */

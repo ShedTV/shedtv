@@ -57,7 +57,7 @@ private enum class SettingsTab(val label: String, val icon: String, val blurb: S
     Subs("Subscriptions", "⌂", "Your TV services and how ShedTV talks to them"),
     Tv("TV & guide", "▦", "Channel lists, the guide and the preview window"),
     Playback("Playback", "▶", "Rewind, subtitles and picture"),
-    Saving("Recording & downloads", "●", "Recording live TV and saving films for offline"),
+    Saving("Recording & downloads", "●", "Recordings are live TV you've recorded; downloads are films and episodes saved to watch offline"),
     Menu("Menu & start screen", "☰", "Which sections you see, their order, and where ShedTV opens"),
     Display("Display", "◐", "Text size, contrast, colour, clock and animations"),
     Lock("Parental lock", "🔒", "A PIN for the categories you choose"),
@@ -361,17 +361,24 @@ private fun SavingSettings(vm: AppViewModel) {
 private fun MenuSettings(vm: AppViewModel) {
     Setting(
         "Sections in the menu",
-        "Choose which sections appear in the menu on the left, and their order. OK shows or hides a section; ◀◀ and ▶▶ (or channel up and down) move it. Hidden sections keep everything in them: show them again and it's all still there. Settings always stays at the bottom.",
-        "No effect on speed. Downloads and Recordings only appear once you have downloads or have turned recording on.",
+        "Choose which sections appear in the menu on the left, and their order. OK shows or hides a section. To move one: hold OK to pick it up, move it with up and down, then press OK to put it down. Hidden sections keep everything in them: show them again and it's all still there. Settings always stays at the bottom.",
+        "No effect on speed. Recordings appears once recording is turned on (Recording & downloads).",
     ) {
+        var moving by remember { mutableStateOf<String?>(null) }
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            vm.orderedMenu().forEach { id ->
+            vm.orderedMenu().forEach { id -> androidx.compose.runtime.key(id) {
                 val shown = id !in vm.menuHidden
+                val isMoving = moving == id
                 FocusTile(
-                    onClick = { vm.setMenuShown(id, !shown) }, selected = shown, corner = 10.dp, focusedScale = 1.02f,
-                    modifier = Modifier.width(420.dp).onPreviewKeyEvent { e ->
+                    onClick = { if (isMoving) moving = null else vm.setMenuShown(id, !shown) },
+                    onLongClick = { moving = if (isMoving) null else id },
+                    selected = shown || isMoving, corner = 10.dp, focusedScale = 1.02f,
+                    modifier = Modifier.width(440.dp).onFocusChanged { if (!it.isFocused && moving == id) moving = null }.onPreviewKeyEvent { e ->
                         if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
                         when (e.key.nativeKeyCode) {
+                            android.view.KeyEvent.KEYCODE_DPAD_UP -> if (isMoving) { vm.moveMenu(id, -1); true } else false
+                            android.view.KeyEvent.KEYCODE_DPAD_DOWN -> if (isMoving) { vm.moveMenu(id, 1); true } else false
+                            android.view.KeyEvent.KEYCODE_BACK -> if (isMoving) { moving = null; true } else false
                             android.view.KeyEvent.KEYCODE_MEDIA_REWIND, android.view.KeyEvent.KEYCODE_CHANNEL_UP -> { vm.moveMenu(id, -1); true }
                             android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD, android.view.KeyEvent.KEYCODE_CHANNEL_DOWN -> { vm.moveMenu(id, 1); true }
                             else -> false
@@ -379,11 +386,11 @@ private fun MenuSettings(vm: AppViewModel) {
                     },
                 ) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(menuLabel(id), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        Text(if (shown) "Shown" else "Hidden", fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = 0.7f))
+                        Text((if (isMoving) "↕  " else "") + menuLabel(id), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text(if (isMoving) "Up/down to move · OK to drop" else if (shown) "Shown" else "Hidden", fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = 0.7f))
                     }
                 }
-            }
+            } }
             Chip("Reset to the usual menu") { vm.resetMenu() }
         }
     }

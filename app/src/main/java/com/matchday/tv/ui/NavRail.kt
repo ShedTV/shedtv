@@ -92,11 +92,10 @@ fun NavRail(vm: AppViewModel, current: Screen) {
         ShedMark(38.dp)
         Spacer(Modifier.height(6.dp))
         val playlist = vm.activeSubscription?.playlist == true
-        val hasDownloads = com.matchday.tv.download.DownloadManager.items.isNotEmpty()
         (vm.orderedMenu().filter { id ->
             id !in vm.menuHidden &&
                 !(playlist && (id == "movies" || id == "series")) &&
-                (id != "downloads" || hasDownloads) && (id != "recordings" || vm.recordingEnabled)
+                (id != "recordings" || vm.recordingEnabled)
         }.mapNotNull { railById[it] } + settingsItem).forEach { item ->
             val selected = item.screen == current
             FocusTile(

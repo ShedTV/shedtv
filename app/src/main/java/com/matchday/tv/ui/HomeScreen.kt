@@ -254,7 +254,7 @@ fun WatchlistScreen(vm: AppViewModel) {
             }
 
             if (wl.items.isNotEmpty()) {
-                Text("ON YOUR WATCHLIST  ·  hold OK to remove  ·  ◀◀ ▶▶ to move", color = Palette.TextSoft, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
+                Text("ON YOUR WATCHLIST  ·  hold OK to remove color = Palette.TextSoft, fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     wl.items.forEach { w ->
                         FocusTile(
