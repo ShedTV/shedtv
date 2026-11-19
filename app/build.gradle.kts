@@ -19,7 +19,7 @@ android {
 
     defaultConfig {
         applicationId = "com.shedtv.app"
-        minSdk = 26
+        minSdk = 25
         targetSdk = 35
         versionCode = buildNumber
         versionName = "0.1.$buildNumber"
