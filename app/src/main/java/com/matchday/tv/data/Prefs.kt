@@ -134,6 +134,28 @@ class Prefs(context: Context) {
         get() = sp.getString("okAction", "play") ?: "play"
         set(value) = sp.edit().putString("okAction", value).apply()
 
+    // ---- Kids mode ----
+    var kidsMode: Boolean
+        get() = sp.getBoolean("kidsMode", false)
+        set(value) = sp.edit().putBoolean("kidsMode", value).apply()
+    fun kids(kind: String, subId: String): Set<String>? = sp.getStringSet("kids${kind}_$subId", null)?.toSet()
+    fun setKids(kind: String, subId: String, ids: Set<String>) = sp.edit().putStringSet("kids${kind}_$subId", ids).apply()
+    /** Minutes after midnight, or -1 for no bedtime. */
+    var kidsBedtime: Int
+        get() = sp.getInt("kidsBedtime", -1)
+        set(value) = sp.edit().putInt("kidsBedtime", value).apply()
+    /** Minutes a day, or 0 for no limit. */
+    var kidsLimit: Int
+        get() = sp.getInt("kidsLimit", 0)
+        set(value) = sp.edit().putInt("kidsLimit", value).apply()
+    var kidsSimpleHome: Boolean
+        get() = sp.getBoolean("kidsSimpleHome", true)
+        set(value) = sp.edit().putBoolean("kidsSimpleHome", value).apply()
+    /** "yyyymmdd:milliseconds watched" for the daily limit. */
+    var kidsUsed: String
+        get() = sp.getString("kidsUsed", "") ?: ""
+        set(value) = sp.edit().putString("kidsUsed", value).apply()
+
     var pin: String?
         get() = sp.getString("pin", null)
         set(value) = sp.edit().putString("pin", value).apply()

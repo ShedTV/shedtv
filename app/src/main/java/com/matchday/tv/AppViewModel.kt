@@ -45,6 +45,7 @@ sealed interface Screen {
     data object Catchup : Screen
     data object ReceiveSetup : Screen
     data object SendSetup : Screen
+    data object KidsSetup : Screen
     data object EditSubscription : Screen
 }
 
@@ -199,11 +200,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setNewPin() {
+    fun setNewPin() = setNewPinThen { }
+
+    /** Choose a PIN (entered twice), then carry on with [then]. */
+    fun setNewPinThen(then: () -> Unit) {
         pinRequest = PinRequest("Choose a 4-digit PIN", newPin = true) { first ->
             pinRequest = PinRequest("Enter it again to confirm", newPin = true) { again ->
                 pinRequest = null
-                if (again == first) { prefs.pin = first; pinSet = true; unlocked = false; flash = "PIN set. Locked categories now need it." }
+                if (again == first) { prefs.pin = first; pinSet = true; unlocked = true; flash = "PIN set."; then() }
                 else flash = "The PINs didn't match. Try again."
             }
         }
@@ -214,6 +218,136 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun lockAgain() { unlocked = false; flash = "Locked again." }
+
+    // ---------- Kids mode ----------
+    /** Only approved categories are shown; Settings needs the PIN. */
+    var kidsMode by mutableStateOf(prefs.kidsMode)
+        private set
+    var kidsLive by mutableStateOf<Set<String>>(emptySet())
+        private set
+    var kidsMovies by mutableStateOf<Set<String>>(emptySet())
+        private set
+    var kidsSeries by mutableStateOf<Set<String>>(emptySet())
+        private set
+    var kidsBedtime by mutableStateOf(prefs.kidsBedtime)
+        private set
+    var kidsLimit by mutableStateOf(prefs.kidsLimit)
+        private set
+    var kidsSimpleHome by mutableStateOf(prefs.kidsSimpleHome)
+        private set
+    /** Set when bedtime or the daily limit is reached: a full-screen "time's up" with a PIN to carry on. */
+    var kidsStop by mutableStateOf<String?>(null)
+        private set
+    private var kidsExtendedUntil = 0L
+
+    private val kidsWords = Regex("(?i)(\\bkids?\\b|child|cartoon|\\btoons?\\b|junior|\\bjnr\\b|cbbc|cbeebies|nick ?jr|nickelodeon|disney|pixar|\\bbaby|pre-?school|tiny ?pop|pop ?max|boomerang|\\bkix\\b)")
+
+    /** Does this category name look like children's content? ("Family" isn't included: it often has 12s and 15s.) */
+    fun looksKids(name: String) = kidsWords.containsMatchIn(name) && !isAdultName(name)
+
+    private fun loadKids() {
+        val id = activeSubscription?.id ?: return
+        kidsLive = prefs.kids("Live", id) ?: emptySet()
+        kidsMovies = prefs.kids("Movies", id) ?: emptySet()
+        kidsSeries = prefs.kids("Series", id) ?: emptySet()
+        applyKidsLibraryFilter()
+    }
+
+    private fun applyKidsLibraryFilter() {
+        val on = kidsMode
+        val m = kidsMovies; val s = kidsSeries
+        library.allowMovieCategory = if (on) ({ c -> c != null && c in m }) else null
+        library.allowSeriesCategory = if (on) ({ c -> c != null && c in s }) else null
+    }
+
+    /** Ticked suggestions for the setup screen, from the category names. */
+    fun suggestKids(kind: String): Set<String> = when (kind) {
+        "Live" -> categories.filter { looksKids(it.name) }.map { it.id }.toSet()
+        "Movies" -> library.movieCategories.filter { looksKids(it.name) }.map { it.id }.toSet()
+        else -> library.seriesCategories.filter { looksKids(it.name) }.map { it.id }.toSet()
+    }
+
+    /** Save what's allowed and switch Kids mode on. */
+    fun startKids(live: Set<String>, movies: Set<String>, series: Set<String>) {
+        val id = activeSubscription?.id ?: return
+        prefs.setKids("Live", id, live); prefs.setKids("Movies", id, movies); prefs.setKids("Series", id, series)
+        kidsLive = live; kidsMovies = movies; kidsSeries = series
+        kidsMode = true; prefs.kidsMode = true
+        unlocked = false
+        applyKidsLibraryFilter()
+        selectedCategoryId = CATEGORY_ALL
+        screen = Screen.Home
+        flash = "Kids mode is on. Settings now needs your PIN."
+    }
+
+    fun stopKids() {
+        askPin("Enter your PIN to turn Kids mode off") {
+            kidsMode = false; prefs.kidsMode = false; kidsStop = null
+            applyKidsLibraryFilter()
+            flash = "Kids mode is off."
+        }
+    }
+
+    fun chooseKidsBedtime(mins: Int) { kidsBedtime = mins; prefs.kidsBedtime = mins }
+    fun chooseKidsLimit(mins: Int) { kidsLimit = mins; prefs.kidsLimit = mins }
+    fun turnKidsSimpleHome(on: Boolean) { kidsSimpleHome = on; prefs.kidsSimpleHome = on }
+
+    private fun today(): String = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.UK).format(java.util.Date())
+
+    /** Minutes watched today in Kids mode. */
+    fun kidsWatchedToday(): Long {
+        val (d, ms) = prefs.kidsUsed.split(':').let { (it.getOrNull(0) ?: "") to (it.getOrNull(1)?.toLongOrNull() ?: 0) }
+        return if (d == today()) ms / 60_000 else 0
+    }
+
+    private fun addKidsWatching(ms: Long) {
+        val (d, used) = prefs.kidsUsed.split(':').let { (it.getOrNull(0) ?: "") to (it.getOrNull(1)?.toLongOrNull() ?: 0) }
+        prefs.kidsUsed = today() + ":" + ((if (d == today()) used else 0) + ms)
+    }
+
+    private fun inBedtime(): Boolean {
+        val bed = kidsBedtime
+        if (bed < 0) return false
+        val c = java.util.Calendar.getInstance()
+        val mins = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE)
+        return mins >= bed || mins < 6 * 60 // until 6am
+    }
+
+    /** Checked every 30 seconds while Kids mode is on. */
+    private fun kidsTick(elapsed: Long) {
+        if (!kidsMode) { kidsStop = null; return }
+        val watching = screen == Screen.Player || screen == Screen.VodPlayer || screen == Screen.Catchup || screen == Screen.RecordingPlayer
+        if (watching && kidsStop == null) addKidsWatching(elapsed)
+        if (System.currentTimeMillis() < kidsExtendedUntil) { kidsStop = null; return }
+        val reason = when {
+            inBedtime() -> "It's bedtime. TV is finished for today."
+            kidsLimit > 0 && kidsWatchedToday() >= kidsLimit -> "That's all the TV for today."
+            else -> null
+        }
+        if (reason != null && kidsStop == null) {
+            kidsStop = reason
+            live.stop()
+            if (watching) screen = Screen.Home
+        } else if (reason == null) kidsStop = null
+    }
+
+    /** A grown-up can allow another hour. */
+    fun kidsOneMoreHour() {
+        pinRequest = PinRequest("Enter your PIN to allow another hour") { entered ->
+            if (entered == prefs.pin) { pinRequest = null; kidsExtendedUntil = System.currentTimeMillis() + 60 * 60_000; kidsStop = null }
+            else flash = "Wrong PIN."
+        }
+    }
+
+    init {
+        loadKids()
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(30_000)
+                runCatching { kidsTick(30_000) }
+            }
+        }
+    }
 
     // ---------- On-screen clock ----------
     var clockMode by mutableStateOf(prefs.clock)
@@ -533,6 +667,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val hidden = hiddenCategories
         val base = if (hidden.isEmpty()) allChannels
         else allChannels.filter { it.categoryId !in hidden || it.streamId in favourites }
+        if (kidsMode) return@derivedStateOf allChannels.filter { it.categoryId != null && it.categoryId in kidsLive }
         // Locked categories stay out of every list, search and Home until the PIN is entered.
         if (!pinSet || unlocked || (lockedCategories.isEmpty() && !lockAdult)) base
         else base.filter { !isLocked(it.categoryId.orEmpty()) }
@@ -548,7 +683,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Collapse quality versions into one entry: the best version, under the tidy name. */
-    private fun merge(list: List<Channel>): List<Channel> {
+    fun merge(list: List<Channel>): List<Channel> {
         if (!mergeQualities) return list
         val favs = favourites
         val groups = LinkedHashMap<String, MutableList<Channel>>()
@@ -648,7 +783,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 kotlinx.coroutines.delay(60_000)
                 if (client == null) continue
                 if (guideLoadedAt > 0 && System.currentTimeMillis() - guideLoadedAt > 6 * 60 * 60 * 1000L) loadGuide(force = true)
-                runCatching { watchlist.refresh(allChannels, guide, favourites) }
+                runCatching { watchlist.refresh(shownChannels, guide, favourites) }
             }
         }
     }
@@ -747,14 +882,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val programmeHits = progs.sortedBy { it.second.start }
             .distinctBy { it.second.title.lowercase() + "|" + it.second.start / 60_000 }.take(40)
         // Other subscriptions: tagged results after the active one's.
-        val extra = if (useBackups) backups.values.toList() else emptyList()
+        val extra = if (useBackups && !kidsMode) backups.values.toList() else emptyList()
         val otherChannels = merge(extra.flatMap { it.channels }).filter { hit(it.name) }
             .sortedByDescending { com.matchday.tv.data.SportMatcher.channelScore(it, favs) }.take(20)
         SearchResults(
             channels = channelHits + otherChannels,
             programmes = programmeHits,
-            movies = library.movies.filter { hit(it.name) }.take(40) + extra.flatMap { it.movies }.filter { hit(it.name) }.take(20),
-            series = library.series.filter { hit(it.name) }.take(40) + extra.flatMap { it.series }.filter { hit(it.name) }.take(20),
+            movies = library.shownMovies.filter { hit(it.name) }.take(40) + extra.flatMap { it.movies }.filter { hit(it.name) }.take(20),
+            series = library.shownSeries.filter { hit(it.name) }.take(40) + extra.flatMap { it.series }.filter { hit(it.name) }.take(20),
         )
     }
 
@@ -907,6 +1042,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 prefs.activeId = sub.id
                 favourites = prefs.favourites(sub.id)
                 lockedCategories = prefs.locked(sub.id)
+                loadKids()
                 hiddenCategories = prefs.hiddenCategories(sub.id)
                 categoryOrder = prefs.categoryOrder(sub.id)
                 editingSubscription = null
@@ -990,6 +1126,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun navigate(to: Screen) {
+        if (kidsMode && !unlocked && (to == Screen.Settings || to == Screen.Categories || to == Screen.EditSubscription || to == Screen.SendSetup || to == Screen.ReceiveSetup)) {
+            askPin("Kids mode is on. Enter your PIN to open Settings") { screen = to }
+            return
+        }
+        if (kidsMode && to in mainScreens) unlocked = false // leaving Settings locks it again
         screen = to
         if (to in mainScreens) prefs.lastScreen = mainScreens.getValue(to)
     }
@@ -1003,7 +1144,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- Home, watchlist and the menu ----------
     fun refreshWatchlist() {
-        viewModelScope.launch { runCatching { watchlist.refresh(allChannels, guide, favourites) } }
+        viewModelScope.launch { runCatching { watchlist.refresh(shownChannels, guide, favourites) } }
     }
 
     @Suppress("unused") private val _lockDoc = "Channels in locked categories stay out of lists, search and Home until unlocked."
@@ -1012,7 +1153,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Films and episodes you've started on the active subscription, newest first. */
     fun continueWatching(): List<com.matchday.tv.data.WatchEntry> {
         @Suppress("UNUSED_EXPRESSION") library.historyVersion
-        return library.history().filter { it.duration <= 0 || it.position < it.duration - 120_000 }.take(15)
+        val list = library.history().filter { it.duration <= 0 || it.position < it.duration - 120_000 }
+        if (!kidsMode) return list.take(15)
+        val okMovies = library.shownMovies.map { library.historyId(it.subId, it.id) }.toSet()
+        val okSeries = library.shownSeries.map { library.historyId(it.subId, it.id) }.toSet()
+        return list.filter { if (it.kind == "movie") it.id in okMovies else it.parentId in okSeries }.take(15)
     }
 
     fun resume(e: com.matchday.tv.data.WatchEntry) {

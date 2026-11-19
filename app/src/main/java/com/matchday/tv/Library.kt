@@ -115,36 +115,42 @@ class Library(
 
     fun history(): List<WatchEntry> = history.all()
 
+    /** Kids mode: which film and series categories may be shown (null = everything). */
+    var allowMovieCategory by mutableStateOf<((String?) -> Boolean)?>(null)
+    var allowSeriesCategory by mutableStateOf<((String?) -> Boolean)?>(null)
+    val shownMovies: List<VodItem> get() = allowMovieCategory?.let { f -> movies.filter { f(it.categoryId) } } ?: movies
+    val shownSeries: List<SeriesItem> get() = allowSeriesCategory?.let { f -> series.filter { f(it.categoryId) } } ?: series
+
     fun movieCategoryList() = listOf(
         Category(CAT_CONTINUE, "Continue watching"),
         Category(CAT_RECENT, "Recently added"),
         Category(CAT_ALL_VOD, "All movies"),
-    ) + movieCategories
+    ) + (allowMovieCategory?.let { f -> movieCategories.filter { f(it.id) } } ?: movieCategories)
 
     fun seriesCategoryList() = listOf(
         Category(CAT_CONTINUE, "Continue watching"),
         Category(CAT_RECENT, "Recently updated"),
         Category(CAT_ALL_VOD, "All series"),
-    ) + seriesCategories
+    ) + (allowSeriesCategory?.let { f -> seriesCategories.filter { f(it.id) } } ?: seriesCategories)
 
     fun moviesIn(categoryId: String): List<VodItem> = when (categoryId) {
         CAT_CONTINUE -> {
-            val byId = movies.associateBy { it.id }
+            val byId = shownMovies.associateBy { it.id }
             history().filter { it.kind == "movie" }.mapNotNull { byId[it.id] }
         }
-        CAT_RECENT -> movies.sortedByDescending { it.added }.take(200)
-        CAT_ALL_VOD -> movies
-        else -> movies.filter { it.categoryId == categoryId }
+        CAT_RECENT -> shownMovies.sortedByDescending { it.added }.take(200)
+        CAT_ALL_VOD -> shownMovies
+        else -> shownMovies.filter { it.categoryId == categoryId }
     }
 
     fun seriesIn(categoryId: String): List<SeriesItem> = when (categoryId) {
         CAT_CONTINUE -> {
-            val byId = series.associateBy { it.id }
+            val byId = shownSeries.associateBy { it.id }
             history().filter { it.kind == "episode" }.mapNotNull { it.parentId }.distinct().mapNotNull { byId[it] }
         }
-        CAT_RECENT -> series.sortedByDescending { it.updated }.take(200)
-        CAT_ALL_VOD -> series
-        else -> series.filter { it.categoryId == categoryId }
+        CAT_RECENT -> shownSeries.sortedByDescending { it.updated }.take(200)
+        CAT_ALL_VOD -> shownSeries
+        else -> shownSeries.filter { it.categoryId == categoryId }
     }
 
     fun showMovie(item: VodItem) {

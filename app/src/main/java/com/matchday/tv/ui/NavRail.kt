@@ -90,12 +90,14 @@ fun NavRail(vm: AppViewModel, current: Screen) {
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         ShedMark(38.dp)
+        if (vm.kidsMode) Text("KIDS", color = Palette.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         Spacer(Modifier.height(6.dp))
         val playlist = vm.activeSubscription?.playlist == true
         (vm.orderedMenu().filter { id ->
             id !in vm.menuHidden &&
                 !(playlist && (id == "movies" || id == "series")) &&
-                (id != "recordings" || vm.recordingEnabled)
+                (id != "recordings" || vm.recordingEnabled) &&
+                !(vm.kidsMode && (id == "recordings" || id == "downloads"))
         }.mapNotNull { railById[it] } + settingsItem).forEach { item ->
             val selected = item.screen == current
             FocusTile(

@@ -109,6 +109,7 @@ private fun App(vm: AppViewModel) {
         if (vm.clockMode == "always" || (vm.clockMode == "menus" && !playing)) {
             com.matchday.tv.ui.ScreenClock(Modifier.align(Alignment.TopEnd).padding(top = 14.dp, end = 22.dp))
         }
+        vm.kidsStop?.let { com.matchday.tv.ui.KidsStopOverlay(vm, it) }
         vm.pinRequest?.let { req -> com.matchday.tv.ui.PinPad(req.title, onCancel = { vm.pinRequest = null }, onDone = req.onDone) }
         val flash = vm.flash
         LaunchedEffect(flash) { if (flash != null) { delay(5_000); vm.flash = null } }
@@ -196,8 +197,9 @@ private fun ScreenFor(vm: AppViewModel, screen: Screen) {
         Screen.Catchup -> com.matchday.tv.ui.CatchupScreen(vm)
         Screen.ReceiveSetup -> com.matchday.tv.ui.ReceiveSetupScreen(vm)
         Screen.SendSetup -> com.matchday.tv.ui.SendSetupScreen(vm)
+        Screen.KidsSetup -> com.matchday.tv.ui.KidsSetupScreen(vm)
         Screen.Loading -> LoadingScreen(vm.loadingMessage)
-        Screen.Home -> com.matchday.tv.ui.HomeScreen(vm)
+        Screen.Home -> if (vm.kidsMode && vm.kidsSimpleHome) com.matchday.tv.ui.KidsHome(vm) else com.matchday.tv.ui.HomeScreen(vm)
         Screen.Watchlist -> com.matchday.tv.ui.WatchlistScreen(vm)
         Screen.Live -> LiveTvScreen(vm)
         Screen.Guide -> GuideScreen(vm)

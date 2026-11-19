@@ -61,6 +61,7 @@ private enum class SettingsTab(val label: String, val icon: String, val blurb: S
     Menu("Menu & start screen", "☰", "Which sections you see, their order, and where ShedTV opens"),
     Display("Display", "◐", "Text size, contrast, colour, clock and animations"),
     Lock("Parental lock", "🔒", "A PIN for the categories you choose"),
+    Kids("Kids mode", "☺", "Only children's channels, films and series, with bedtime and time limits"),
     About("About & updates", "ⓘ", "Version, updates and licences"),
 }
 
@@ -118,6 +119,7 @@ fun SettingsScreen(vm: AppViewModel) {
                 SettingsTab.Menu -> MenuSettings(vm)
                 SettingsTab.Display -> DisplaySettings(vm)
                 SettingsTab.Lock -> LockSettings(vm)
+                SettingsTab.Kids -> KidsSettings(vm)
                 SettingsTab.About -> AboutSettings(vm)
             }
         }
@@ -412,6 +414,27 @@ private fun MenuSettings(vm: AppViewModel) {
         "Watchlist",
         "Things ShedTV looks for in your guide (teams, shows, events) to show on Home, with a reminder just before they start.",
     ) { Chip("Edit watchlist (${vm.watchlist.items.size})") { vm.navigate(Screen.Watchlist) } }
+}
+
+@Composable
+private fun KidsSettings(vm: AppViewModel) {
+    Setting(
+        "Kids mode",
+        if (vm.kidsMode) "Kids mode is on. Only the categories you chose are visible, and Settings needs your PIN. ${vm.kidsLive.size} live, ${vm.kidsMovies.size} film and ${vm.kidsSeries.size} series categories are allowed."
+        else "One step to make ShedTV child-friendly: only children's channels, films and series are shown, and everything else (including anything your provider adds later) stays hidden. Settings, subscriptions and turning it off need your PIN.",
+        "No effect on speed. It filters by category name, so check the suggested list once; it's a filter, not a guarantee.",
+    ) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (!vm.kidsMode) {
+                Chip("Set up Kids mode", selected = true) { if (vm.pinSet) vm.navigate(Screen.KidsSetup) else vm.setNewPinThen { vm.navigate(Screen.KidsSetup) } }
+            } else {
+                Chip("Change what's allowed") { vm.navigate(Screen.KidsSetup) }
+                Chip("Turn Kids mode off", danger = true) { vm.stopKids() }
+            }
+        }
+    }
+    if (vm.kidsMode) Setting("Bedtime, limits and Home", "Changes take effect straight away.") { KidsExtras(vm) }
+    MakeItStick()
 }
 
 @Composable

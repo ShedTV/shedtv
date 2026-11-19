@@ -39,7 +39,7 @@ enum class SetupPart(val label: String, val detail: String) {
     Watchlist("Watchlist", "Everything on your watchlist"),
     Settings("Settings", "Menu, start screen, display and playback settings"),
     History("Watch history", "Continue watching and resume points"),
-    Lock("Parental lock", "PIN and locked categories"),
+    Lock("Parental lock & Kids mode", "PIN, locked categories and Kids mode settings"),
 }
 
 /**
@@ -64,7 +64,7 @@ object SetupTransfer {
     private fun partOf(key: String): SetupPart? = when {
         key == "subscriptions" || key == "activeSubscription" -> SetupPart.Subscriptions
         key.startsWith("favourites") || key.startsWith("hidden_") || key.startsWith("catOrder_") -> SetupPart.Lists
-        key == "pin" || key == "lockAdult" || key.startsWith("locked_") -> SetupPart.Lock
+        key == "pin" || key == "lockAdult" || key.startsWith("locked_") || (key.startsWith("kids") && key != "kidsUsed") -> SetupPart.Lock
         key in settingsKeys -> SetupPart.Settings
         else -> null // device-specific (storage folders, last screen) stays put
     }
