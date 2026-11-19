@@ -51,6 +51,7 @@ fun LoginScreen(
     title: String,
     onCancel: (() -> Unit)?,
     onSubmit: (String, Credentials) -> Unit,
+    onTransfer: (() -> Unit)? = null,
 ) {
     var name by rememberSaveable { mutableStateOf(initial?.name.orEmpty()) }
     var server by rememberSaveable { mutableStateOf(initial?.server.orEmpty()) }
@@ -141,6 +142,11 @@ fun LoginScreen(
                     Button(onClick = onCancel) {
                         Text("Cancel", fontSize = 18.sp, modifier = Modifier.padding(horizontal = 12.dp))
                     }
+                }
+            }
+            if (onTransfer != null) {
+                Button(onClick = onTransfer) {
+                    Text("📱  Set up from my phone or another ShedTV", fontSize = 16.sp, modifier = Modifier.padding(horizontal = 8.dp))
                 }
             }
         }

@@ -37,15 +37,15 @@ import kotlinx.coroutines.delay
 
 /** Four-digit PIN entry for the parental lock. */
 @Composable
-fun PinPad(title: String, onCancel: () -> Unit, onDone: (String) -> Unit) {
+fun PinPad(title: String, length: Int = 4, onCancel: () -> Unit, onDone: (String) -> Unit) {
     var pin by remember(title) { mutableStateOf("") }
     val first = remember { FocusRequester() }
     LaunchedEffect(title) { delay(60); runCatching { first.requestFocus() } }
     BackHandler { onCancel() }
     fun press(d: String) {
-        if (pin.length >= 4) return
+        if (pin.length >= length) return
         pin += d
-        if (pin.length == 4) { val p = pin; pin = ""; onDone(p) }
+        if (pin.length == length) { val p = pin; pin = ""; onDone(p) }
     }
     Box(
         Modifier.fillMaxSize().background(Color(0xD9000000)).onPreviewKeyEvent { e ->
@@ -64,7 +64,8 @@ fun PinPad(title: String, onCancel: () -> Unit, onDone: (String) -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("🔒  " + title, color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-            Text(if (pin.isEmpty()) "• • • •" else pin.map { "●" }.joinToString(" ") + " •".repeat(4 - pin.length),
+            Text(if (length == 4) (if (pin.isEmpty()) "• • • •" else pin.map { "●" }.joinToString(" ") + " •".repeat(4 - pin.length))
+                else (pin.toList().joinToString(" ") + " _".repeat(length - pin.length)).trim(),
                 color = Palette.Accent, fontSize = 26.sp, fontWeight = FontWeight.Bold)
             listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("⌫", "0", "✕")).forEachIndexed { r, row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

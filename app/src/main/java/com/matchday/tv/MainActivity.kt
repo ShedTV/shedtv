@@ -177,6 +177,7 @@ private fun ScreenFor(vm: AppViewModel, screen: Screen) {
             error = vm.error,
             title = "Add your subscription",
             onCancel = null,
+            onTransfer = { vm.openReceive() },
             onSubmit = { name, creds -> vm.saveSubscription(name, creds) },
         )
         Screen.EditSubscription -> LoginScreen(
@@ -193,6 +194,8 @@ private fun ScreenFor(vm: AppViewModel, screen: Screen) {
         Screen.RecordingPlayer -> com.matchday.tv.ui.RecordingPlayerScreen(vm)
         Screen.Downloads -> com.matchday.tv.ui.DownloadsScreen(vm)
         Screen.Catchup -> com.matchday.tv.ui.CatchupScreen(vm)
+        Screen.ReceiveSetup -> com.matchday.tv.ui.ReceiveSetupScreen(vm)
+        Screen.SendSetup -> com.matchday.tv.ui.SendSetupScreen(vm)
         Screen.Loading -> LoadingScreen(vm.loadingMessage)
         Screen.Home -> com.matchday.tv.ui.HomeScreen(vm)
         Screen.Watchlist -> com.matchday.tv.ui.WatchlistScreen(vm)

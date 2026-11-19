@@ -43,6 +43,8 @@ sealed interface Screen {
     data object RecordingPlayer : Screen
     data object Downloads : Screen
     data object Catchup : Screen
+    data object ReceiveSetup : Screen
+    data object SendSetup : Screen
     data object EditSubscription : Screen
 }
 
@@ -991,6 +993,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         screen = to
         if (to in mainScreens) prefs.lastScreen = mainScreens.getValue(to)
     }
+
+    // ---------- Copying a setup between devices ----------
+    private var receiveFrom: Screen = Screen.Login
+
+    fun openReceive() { receiveFrom = screen; screen = Screen.ReceiveSetup }
+
+    fun leaveReceive() { screen = if (subscriptions.isEmpty()) Screen.Login else receiveFrom.takeIf { it != Screen.ReceiveSetup } ?: Screen.Settings }
 
     // ---------- Home, watchlist and the menu ----------
     fun refreshWatchlist() {

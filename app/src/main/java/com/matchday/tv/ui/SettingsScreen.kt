@@ -180,6 +180,8 @@ private fun SubscriptionSettings(vm: AppViewModel) {
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Chip("+  Add subscription") { vm.startAddSubscription() }
+                Chip("📱  Add from my phone / copy from another device") { vm.openReceive() }
+                Chip("⇄  Send my setup to another device") { vm.navigate(Screen.SendSetup) }
                 if (active != null) {
                     Chip("Edit ${active.name}") { vm.startEditSubscription(active) }
                     Chip(if (confirmRemove == active.id) "Press again to remove" else "Remove ${active.name}", danger = confirmRemove == active.id) {
@@ -549,8 +551,8 @@ private fun Heading(title: String, subtitle: String) {
 }
 
 @Composable
-private fun Chip(label: String, selected: Boolean = false, danger: Boolean = false, onClick: () -> Unit) {
-    FocusTile(onClick = onClick, selected = selected, corner = 10.dp, focusedScale = 1.05f) {
+fun Chip(label: String, selected: Boolean = false, danger: Boolean = false, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    FocusTile(onClick = onClick, selected = selected, corner = 10.dp, focusedScale = 1.05f, modifier = modifier) {
         Text(
             label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
             color = if (danger) Palette.Live else LocalContentColor.current,
