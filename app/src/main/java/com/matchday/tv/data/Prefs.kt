@@ -192,7 +192,8 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putBoolean("stay50Hz", value).apply()
 
     var animations: Boolean
-        get() = sp.getBoolean("animations", true)
+        // Off for new installs; anyone who already had ShedTV keeps what they had.
+        get() = if (sp.contains("animations")) sp.getBoolean("animations", false) else sp.contains("subscriptions")
         set(value) = sp.edit().putBoolean("animations", value).apply()
 
     var liveRewind: Boolean
