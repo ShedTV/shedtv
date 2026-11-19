@@ -121,6 +121,37 @@ class Library(
     val shownMovies: List<VodItem> get() = allowMovieCategory?.let { f -> movies.filter { f(it.categoryId) } } ?: movies
     val shownSeries: List<SeriesItem> get() = allowSeriesCategory?.let { f -> series.filter { f(it.categoryId) } } ?: series
 
+    // ---------- Sorting ----------
+    private val sortPrefs = app.getSharedPreferences("matchday", android.content.Context.MODE_PRIVATE)
+    /** default, az, za, rating, year or added. */
+    var movieSort by mutableStateOf(sortPrefs.getString("movieSort", "default") ?: "default")
+        private set
+    var seriesSort by mutableStateOf(sortPrefs.getString("seriesSort", "default") ?: "default")
+        private set
+    fun chooseMovieSort(s: String) { movieSort = s; sortPrefs.edit().putString("movieSort", s).apply() }
+    fun chooseSeriesSort(s: String) { seriesSort = s; sortPrefs.edit().putString("seriesSort", s).apply() }
+
+    private fun titleKey(name: String) = name.lowercase().trimStart { !it.isLetterOrDigit() }.removePrefix("the ")
+    private fun ratingOf(r: String?) = r?.replace(',', '.')?.toDoubleOrNull() ?: -1.0
+
+    fun sortMovies(list: List<VodItem>, by: String): List<VodItem> = when (by) {
+        "az" -> list.sortedBy { titleKey(it.name) }
+        "za" -> list.sortedByDescending { titleKey(it.name) }
+        "rating" -> list.sortedByDescending { ratingOf(it.rating) }
+        "year" -> list.sortedWith(compareByDescending<VodItem> { it.year.toIntOrNull() ?: 0 }.thenByDescending { it.added })
+        "added" -> list.sortedByDescending { it.added }
+        else -> list
+    }
+
+    fun sortSeries(list: List<SeriesItem>, by: String): List<SeriesItem> = when (by) {
+        "az" -> list.sortedBy { titleKey(it.name) }
+        "za" -> list.sortedByDescending { titleKey(it.name) }
+        "rating" -> list.sortedByDescending { ratingOf(it.rating) }
+        "year" -> list.sortedWith(compareByDescending<SeriesItem> { it.year.toIntOrNull() ?: 0 }.thenByDescending { it.updated })
+        "added" -> list.sortedByDescending { it.updated }
+        else -> list
+    }
+
     fun movieCategoryList() = listOf(
         Category(CAT_CONTINUE, "Continue watching"),
         Category(CAT_RECENT, "Recently added"),

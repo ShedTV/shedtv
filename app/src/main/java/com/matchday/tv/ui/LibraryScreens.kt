@@ -61,17 +61,22 @@ fun MoviesScreen(vm: AppViewModel) {
     val lib = vm.library
     LaunchedEffect(Unit) { lib.loadMovies() }
     val cat = lib.movieCategory
-    val items = remember(lib.movies, cat, lib.historyVersion) { lib.moviesIn(cat) }
+    val items = remember(lib.movies, cat, lib.historyVersion, lib.movieSort) {
+        lib.moviesIn(cat).let { if (cat == com.matchday.tv.CAT_CONTINUE) it else lib.sortMovies(it, lib.movieSort) }
+    }
     val history = remember(lib.historyVersion) { lib.history().filter { it.kind == "movie" }.associateBy { it.id } }
     BrowseLayout(
         vm = vm, current = Screen.Movies, title = "MOVIES",
         status = lib.moviesStatus,
         categories = lib.movieCategoryList(), selected = cat, onCategory = { lib.movieCategory = it },
         count = { id -> if (id == cat) items.size else null },
-        posters = remember(items, history) { items.map { PosterData(it.id, it.name, it.poster, it.rating?.let { r -> "★ $r" }.orEmpty(), history[it.id]?.progress) } },
+        posters = remember(items, history) {
+            items.map { PosterData(it.id, it.name, it.poster, listOfNotNull(it.year.ifBlank { null }, it.rating?.let { r -> "★ $r" }).joinToString("  ·  "), history[it.id]?.progress) }
+        },
         onOpen = { id ->
             items.firstOrNull { it.id == id }?.let { lib.showMovie(it); vm.navigate(Screen.MovieDetails) }
         },
+        sort = lib.movieSort, onSort = { lib.chooseMovieSort(it) }, showSort = cat != com.matchday.tv.CAT_CONTINUE,
     )
 }
 
@@ -80,16 +85,19 @@ fun SeriesScreen(vm: AppViewModel) {
     val lib = vm.library
     LaunchedEffect(Unit) { lib.loadSeries() }
     val cat = lib.seriesCategory
-    val items = remember(lib.series, cat, lib.historyVersion) { lib.seriesIn(cat) }
+    val items = remember(lib.series, cat, lib.historyVersion, lib.seriesSort) {
+        lib.seriesIn(cat).let { if (cat == com.matchday.tv.CAT_CONTINUE) it else lib.sortSeries(it, lib.seriesSort) }
+    }
     BrowseLayout(
         vm = vm, current = Screen.Series, title = "SERIES",
         status = lib.seriesStatus,
         categories = lib.seriesCategoryList(), selected = cat, onCategory = { lib.seriesCategory = it },
         count = { id -> if (id == cat) items.size else null },
-        posters = remember(items) { items.map { PosterData(it.id, it.name, it.cover, listOf(it.year, it.genre.substringBefore(",")).filter { s -> s.isNotBlank() }.joinToString(" · "), null) } },
+        posters = remember(items) { items.map { PosterData(it.id, it.name, it.cover, listOfNotNull(it.year.ifBlank { null }, it.rating?.let { r -> "★ $r" }).joinToString("  ·  "), null) } },
         onOpen = { id ->
             items.firstOrNull { it.id == id }?.let { lib.showSeries(it); vm.navigate(Screen.SeriesDetails) }
         },
+        sort = lib.seriesSort, onSort = { lib.chooseSeriesSort(it) }, showSort = cat != com.matchday.tv.CAT_CONTINUE,
     )
 }
 
@@ -105,6 +113,9 @@ private fun BrowseLayout(
     count: (String) -> Int?,
     posters: List<PosterData>,
     onOpen: (String) -> Unit,
+    sort: String = "default",
+    onSort: (String) -> Unit = {},
+    showSort: Boolean = true,
 ) {
     val firstCategory = remember { FocusRequester() }
     LaunchedEffect(categories.size) {
@@ -157,14 +168,25 @@ private fun BrowseLayout(
                         else "Nothing in this category.",
                         color = Palette.TextMuted, fontSize = 16.sp, modifier = Modifier.padding(top = 50.dp),
                     )
-                    else -> LazyVerticalGrid(
+                    else -> Column(Modifier.fillMaxSize()) {
+                    if (showSort) Row(Modifier.padding(start = 6.dp, top = 4.dp, bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("SORT", color = Palette.TextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        listOf("default" to "Provider's order", "added" to "Recently added", "az" to "A–Z", "za" to "Z–A", "rating" to "★ Rating", "year" to "Newest").forEach { (k, label) ->
+                            FocusTile(onClick = { onSort(k) }, selected = sort == k, corner = 8.dp, focusedScale = 1.05f) {
+                                Text(label, fontSize = 12.sp, fontWeight = if (sort == k) FontWeight.Bold else FontWeight.Normal, maxLines = 1,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp))
+                            }
+                        }
+                    }
+                    LazyVerticalGrid(
                         columns = GridCells.Adaptive(118.dp),
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(top = 42.dp, bottom = 28.dp, start = 6.dp, end = 6.dp),
+                        contentPadding = PaddingValues(top = if (showSort) 14.dp else 42.dp, bottom = 28.dp, start = 6.dp, end = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         items(posters, key = { it.id }) { p -> PosterTile(p) { onOpen(p.id) } }
+                    }
                     }
                 }
             }

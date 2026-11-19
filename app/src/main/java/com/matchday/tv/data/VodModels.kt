@@ -8,6 +8,7 @@ data class VodItem(
     val categoryId: String?,
     val ext: String,
     val added: Long,
+    val year: String = "",
     /** Set for films from another subscription. */
     val subId: String? = null,
 )

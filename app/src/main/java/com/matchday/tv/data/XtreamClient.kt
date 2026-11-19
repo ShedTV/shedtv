@@ -218,6 +218,8 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
                 categoryId = o["category_id"],
                 ext = o["container_extension"]?.ifBlank { null } ?: "mp4",
                 added = o["added"]?.toLongOrNull() ?: 0,
+                year = o["year"]?.trim()?.take(4)?.takeIf { it.length == 4 && it.all(Char::isDigit) }
+                    ?: YEAR_IN_NAME.find(o["name"].orEmpty())?.groupValues?.get(1).orEmpty(),
             )
         }.distinctBy { it.id }
 
@@ -377,7 +379,9 @@ class XtreamClient(credentials: Credentials, private val userAgent: String? = nu
 
     companion object {
         private val LIVE_KEYS = setOf("stream_id", "num", "name", "stream_icon", "category_id", "epg_channel_id", "tv_archive", "tv_archive_duration")
-        private val VOD_KEYS = setOf("stream_id", "name", "stream_icon", "rating", "category_id", "container_extension", "added")
+        private val VOD_KEYS = setOf("stream_id", "name", "stream_icon", "rating", "category_id", "container_extension", "added", "year")
+        /** "Film (2024)" or "Film - 2024": the year many providers put in the name. */
+        private val YEAR_IN_NAME = Regex("[(\\[\\s-]((?:19|20)\\d{2})[)\\]]?\\s*$")
         private val SERIES_KEYS = setOf("series_id", "name", "cover", "plot", "genre", "releaseDate", "release_date", "rating", "category_id", "last_modified")
 
         val http: OkHttpClient = OkHttpClient.Builder()
