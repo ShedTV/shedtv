@@ -1092,8 +1092,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     connect(sub.copy(server = "http://" + sub.server.removePrefix("https://")), saveOnSuccess, attempts)
                     return@launch
                 }
+                val badCert = generateSequence(e as Throwable) { it.cause }.any { it is java.security.cert.CertificateException || it is java.security.cert.CertPathValidatorException } ||
+                    (e.message ?: "").contains("Trust anchor", true)
                 error = "${sub.name}: " + when {
-                    tlsMismatch -> "the server's secure connection didn't work. Check the address, including http:// or https:// and the port number."
+                    badCert -> "the server's security certificate isn't valid, so the address is probably wrong. Check it with your provider. Most addresses start with http:// and end with a port number like :8080."
+                    e is java.net.UnknownHostException -> "couldn't find that server address. Check it for typos."
+                    tlsMismatch ->"the server's secure connection didn't work. Check the address, including http:// or https:// and the port number."
                     else -> e.message ?: "couldn't connect to the provider."
                 }
                 // Keep what was typed, so the form isn't empty after a mistake.
