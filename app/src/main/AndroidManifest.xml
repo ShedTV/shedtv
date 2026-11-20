@@ -31,13 +31,13 @@
 
         <activity
             android:name=".MainActivity"
-            android:windowSoftInputMode="stateAlwaysHidden|adjustNothing"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize"
             android:banner="@drawable/banner"
             android:icon="@mipmap/ic_launcher"
             android:logo="@drawable/banner"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
             android:exported="true"
-            android:screenOrientation="landscape">
+            android:screenOrientation="sensorLandscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

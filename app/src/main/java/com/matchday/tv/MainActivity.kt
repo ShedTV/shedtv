@@ -170,6 +170,13 @@ private fun Screens(vm: AppViewModel) {
         if (vm.stay50Hz) com.matchday.tv.player.FrameRateMatcher.match(activity, 50f)
         else if (vm.screen != Screen.Player && vm.screen != Screen.VodPlayer) com.matchday.tv.player.FrameRateMatcher.reset(activity)
     }
+        // Phones (not tablets or TVs) can turn upright while filling in a subscription, so the keyboard isn't in the way.
+        val phone = androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp < 600
+        LaunchedEffect(vm.screen, phone) {
+            activity.requestedOrientation =
+                if (phone && (vm.screen == Screen.Login || vm.screen == Screen.EditSubscription)) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_USER
+                else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
     LaunchedEffect(vm.screen, vm.previewEnabled) { vm.onScreenShown(vm.screen) }
     val animate = vm.animations
     AnimatedContent(

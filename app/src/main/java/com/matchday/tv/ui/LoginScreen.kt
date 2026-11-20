@@ -1,7 +1,12 @@
-@file:OptIn(ExperimentalTvMaterial3Api::class)
+@file:OptIn(ExperimentalTvMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package com.matchday.tv.ui
 
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -73,15 +78,18 @@ fun LoginScreen(
         }
     }
 
-    Row(
+    val narrow = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp < 700
+    androidx.compose.foundation.layout.FlowRow(
         Modifier
             .fillMaxSize()
             .background(Palette.Background)
-            .padding(horizontal = 64.dp, vertical = 48.dp),
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = if (narrow) 20.dp else 64.dp, vertical = if (narrow) 24.dp else 48.dp),
         horizontalArrangement = Arrangement.spacedBy(64.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(if (narrow) Modifier.fillMaxWidth() else Modifier.width(420.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             ShedMark(84.dp)
             ShedTvWordmark(40)
             Text(title, color = Palette.Accent, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
@@ -97,7 +105,7 @@ fun LoginScreen(
             )
         }
 
-        Column(Modifier.width(440.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(if (narrow) Modifier.fillMaxWidth() else Modifier.width(440.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Field("Name (e.g. Main sub, Backup sub)", name, { name = it }, Modifier.focusRequester(first), KeyboardType.Text) {
                 focus.moveFocus(FocusDirection.Down)
             }
@@ -165,27 +173,48 @@ private fun Field(
     imeAction: ImeAction = ImeAction.Next,
     onAction: () -> Unit,
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onChange,
-        label = { androidx.compose.material3.Text(label) },
-        singleLine = true,
-        modifier = modifier.width(440.dp),
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction, autoCorrectEnabled = false),
-        keyboardActions = KeyboardActions(onNext = { onAction() }, onDone = { onAction() }),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = Palette.Text,
-            unfocusedTextColor = Palette.Text,
-            focusedBorderColor = Palette.Accent,
-            unfocusedBorderColor = Palette.TextMuted,
-            focusedLabelColor = Palette.Accent,
-            unfocusedLabelColor = Palette.TextMuted,
-            cursorColor = Palette.Accent,
-            focusedContainerColor = Palette.Card,
-            unfocusedContainerColor = Palette.Card,
-        ),
-    )
+    // A plain Android text box: unlike Compose fields, its hint is passed to the keyboard, so the
+    // full-screen Fire TV keyboard says what you're typing ("Username", "Password"...) instead of a blank box.
+    val latestChange = androidx.compose.runtime.rememberUpdatedState(onChange)
+    val latestAction = androidx.compose.runtime.rememberUpdatedState(onAction)
+    var focused by remember { mutableStateOf(false) }
+    Column(modifier.width(440.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, color = if (focused) Palette.Accent else Palette.TextMuted, fontSize = 13.sp)
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory = { ctx ->
+                android.widget.EditText(ctx).apply {
+                    hint = label
+                    setHintTextColor(android.graphics.Color.argb(120, 200, 210, 220))
+                    setTextColor(android.graphics.Color.WHITE)
+                    textSize = 18f
+                    isSingleLine = true
+                    background = null
+                    setPadding(28, 22, 28, 22)
+                    inputType = when {
+                        isPassword -> android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                        keyboardType == KeyboardType.Uri -> android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI
+                        else -> android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                    }
+                    imeOptions = if (imeAction == ImeAction.Done) android.view.inputmethod.EditorInfo.IME_ACTION_DONE else android.view.inputmethod.EditorInfo.IME_ACTION_NEXT
+                    setText(value)
+                    addTextChangedListener(object : android.text.TextWatcher {
+                        override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                        override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                        override fun afterTextChanged(e: android.text.Editable?) {
+                            val t = e?.toString().orEmpty()
+                            if (t != value) latestChange.value(t)
+                        }
+                    })
+                    setOnEditorActionListener { _, _, _ -> latestAction.value(); true }
+                    setOnFocusChangeListener { _, has -> focused = has }
+                }
+            },
+            update = { if (it.text.toString() != value) it.setText(value) },
+            modifier = Modifier.fillMaxWidth()
+                .background(Palette.Card, RoundedCornerShape(10.dp))
+                .border(if (focused) 2.dp else 1.dp, if (focused) Palette.Accent else Palette.TextMuted, RoundedCornerShape(10.dp)),
+        )
+    }
 }
 
 @Composable

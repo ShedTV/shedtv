@@ -78,7 +78,7 @@ fun SettingsScreen(vm: AppViewModel) {
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
         NavRail(vm, Screen.Settings)
         // Tabs
-        Column(Modifier.width(250.dp).fillMaxHeight().padding(start = 24.dp, top = 22.dp, end = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(Modifier.width(250.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(start = 24.dp, top = 22.dp, end = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("SETTINGS", color = Palette.Text, fontSize = 28.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp,
                 modifier = Modifier.padding(start = 6.dp, bottom = 10.dp))
             SettingsTab.entries.forEach { t ->
@@ -96,7 +96,7 @@ fun SettingsScreen(vm: AppViewModel) {
                     }
                 }
             }
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(16.dp))
             Text("Up and down to pick a section, then right to change its settings. Back returns here.", color = Palette.TextMuted, fontSize = 11.sp,
                 modifier = Modifier.padding(start = 6.dp, bottom = 24.dp))
         }
