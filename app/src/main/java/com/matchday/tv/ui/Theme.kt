@@ -2,6 +2,8 @@
 
 package com.matchday.tv.ui
 
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -307,8 +309,8 @@ fun Modifier.touchTap(onTap: () -> Unit, onLongPress: (() -> Unit)? = null): Mod
 /** Two-finger pinch: out to fill the screen, in to fit. Leaves one-finger taps and swipes alone. */
 fun Modifier.pinchToFill(onFill: (Boolean) -> Unit): Modifier = this.then(
     Modifier.pointerInput(Unit) {
-        androidx.compose.foundation.gestures.awaitEachGesture {
-            androidx.compose.foundation.gestures.awaitFirstDown(requireUnconsumed = false)
+        awaitEachGesture {
+            awaitFirstDown(requireUnconsumed = false)
             var start = 0f
             while (true) {
                 val event = awaitPointerEvent()
