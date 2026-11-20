@@ -277,7 +277,15 @@ private fun TvSettings(vm: AppViewModel) {
         "Preview window",
         "Plays the highlighted channel, muted, in a small window in Live TV and the guide. Press OK and it carries on full screen without restarting.",
         "Uses your connection while you browse, and on a Fire Stick moving between channels can feel a little slower. On one-connection subscriptions, downloads pause while it plays.",
-    ) { OnOff(vm.previewEnabled) { vm.turnPreview(it) } }
+    ) {
+        OnOff(vm.previewEnabled) { vm.turnPreview(it) }
+        if (vm.previewEnabled) {
+            Text("While you browse, the preview shows:", color = Palette.TextSoft, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+            OnOff(vm.previewMode == "follow", "The highlighted channel", "What I was watching") { vm.choosePreviewMode(if (it) "follow" else "stay") }
+            Text("\"What I was watching\" is handy in ad breaks: look around, then tap the preview (or use Back to … at the top of the channel list) to carry on.",
+                color = Palette.TextMuted, fontSize = 12.sp)
+        }
+    }
 
     if (vm.activeSubscription != null) {
         Setting(

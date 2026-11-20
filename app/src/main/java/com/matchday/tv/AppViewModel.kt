@@ -817,6 +817,26 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Muted preview of a channel; keeps going if it's already playing this channel or one of its versions. */
+    var previewMode by mutableStateOf(prefs.previewMode)
+        private set
+    fun choosePreviewMode(m: String) { previewMode = m; prefs.previewMode = m }
+
+    /** The channel showing in the preview window, if any. */
+    fun previewChannel(): Channel? {
+        val uid = live.currentStreamId ?: return null
+        return allChannels.firstOrNull { it.uid == uid } ?: backups.values.flatMap { it.channels }.firstOrNull { it.uid == uid }
+    }
+
+    /** Full screen on whatever is in the preview (tap the preview, or the "Back to" button). */
+    fun watchPreview() {
+        val ch = previewChannel() ?: currentChannel ?: return
+        lastFocusedChannelId = ch.streamId
+        play(ch, from = if (screen == Screen.Guide) Screen.Guide else Screen.Live)
+    }
+
+    /** Pinch out on a phone to fill the screen (crops the edges), pinch in to see the whole picture. */
+    var fillScreen by mutableStateOf(false)
+
     fun isPreviewing(channel: Channel): Boolean {
         val current = live.currentStreamId ?: return false
         return sourcesFor(channel).any { it.uid == current }

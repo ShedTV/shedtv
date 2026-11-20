@@ -286,6 +286,7 @@ fun CatchupScreen(vm: AppViewModel) {
                     else -> false
                 }
             }
+            .pinchToFill { vm.fillScreen = it }
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { if (!showOverlay) poke() else { if (player.isPlaying) player.pause() else player.play(); poke() } },
@@ -306,6 +307,7 @@ fun CatchupScreen(vm: AppViewModel) {
                     this.player = player
                 }
             },
+            update = { it.resizeMode = if (vm.fillScreen) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT },
             modifier = Modifier.fillMaxSize(),
         )
         AnimatedVisibility(

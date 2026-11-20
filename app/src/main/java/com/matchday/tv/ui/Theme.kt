@@ -231,7 +231,7 @@ fun categoryLabel(name: String): androidx.compose.ui.text.AnnotatedString {
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun LivePreview(vm: com.matchday.tv.AppViewModel, modifier: Modifier = Modifier) {
-    Box(modifier.clip(RoundedCornerShape(12.dp)).background(Color.Black)) {
+    Box(modifier.clip(RoundedCornerShape(12.dp)).background(Color.Black).touchTap({ vm.watchPreview() })) {
         androidx.compose.ui.viewinterop.AndroidView(
             factory = { ctx ->
                 androidx.media3.ui.PlayerView(ctx).apply {
@@ -251,9 +251,11 @@ fun LivePreview(vm: com.matchday.tv.AppViewModel, modifier: Modifier = Modifier)
 /** Starts the preview once the highlight has rested on [channel] for a moment, so scrolling doesn't open a connection per row. */
 @Composable
 fun PreviewFollower(vm: com.matchday.tv.AppViewModel, channel: com.matchday.tv.data.Channel?) {
-    LaunchedEffect(channel?.streamId, vm.live.stops, vm.previewEnabled) {
+    LaunchedEffect(channel?.streamId, vm.live.stops, vm.previewEnabled, vm.previewMode) {
         val ch = channel ?: return@LaunchedEffect
         if (!vm.previewEnabled) return@LaunchedEffect
+        // "Keep showing what I was watching": leave the preview alone while browsing.
+        if (vm.previewMode == "stay" && vm.live.currentStreamId != null) return@LaunchedEffect
         kotlinx.coroutines.delay(1_000)
         vm.preview(ch)
     }
@@ -298,5 +300,29 @@ fun ScreenClock(modifier: Modifier = Modifier) {
 fun Modifier.touchTap(onTap: () -> Unit, onLongPress: (() -> Unit)? = null): Modifier = this.then(
     Modifier.pointerInput(onTap, onLongPress) {
         detectTapGestures(onTap = { onTap() }, onLongPress = onLongPress?.let { l -> { _ -> l() } })
+    },
+)
+
+
+/** Two-finger pinch: out to fill the screen, in to fit. Leaves one-finger taps and swipes alone. */
+fun Modifier.pinchToFill(onFill: (Boolean) -> Unit): Modifier = this.then(
+    Modifier.pointerInput(Unit) {
+        androidx.compose.foundation.gestures.awaitEachGesture {
+            androidx.compose.foundation.gestures.awaitFirstDown(requireUnconsumed = false)
+            var start = 0f
+            while (true) {
+                val event = awaitPointerEvent()
+                val down = event.changes.filter { it.pressed }
+                if (down.isEmpty()) break
+                if (down.size >= 2) {
+                    val d = (down[0].position - down[1].position).getDistance()
+                    when {
+                        start == 0f -> start = d
+                        d > start * 1.25f -> { onFill(true); start = d }
+                        d < start * 0.8f -> { onFill(false); start = d }
+                    }
+                } else start = 0f
+            }
+        }
     },
 )

@@ -62,8 +62,28 @@ class MainActivity : ComponentActivity() {
         appVm.live.stop()
     }
 
+    /** Phones and tablets: no status bar or navigation bar over the picture (swipe from an edge to show them briefly). */
+    private fun hideSystemBars() {
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        if (android.os.Build.VERSION.SDK_INT >= 28) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+        }
+        androidx.core.view.WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemBars()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        hideSystemBars()
         setContent {
             val vm: AppViewModel = viewModel()
             LaunchedEffect(vm.exitRequested) { if (vm.exitRequested) { vm.exitRequested = false; finish() } }

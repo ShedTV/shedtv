@@ -156,6 +156,11 @@ class Prefs(context: Context) {
         get() = sp.getString("kidsUsed", "") ?: ""
         set(value) = sp.edit().putString("kidsUsed", value).apply()
 
+    /** "follow": the preview shows the highlighted channel; "stay": it keeps showing what you were watching. */
+    var previewMode: String
+        get() = sp.getString("previewMode", "follow") ?: "follow"
+        set(value) = sp.edit().putString("previewMode", value).apply()
+
     var pin: String?
         get() = sp.getString("pin", null)
         set(value) = sp.edit().putString("pin", value).apply()

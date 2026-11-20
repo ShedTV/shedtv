@@ -436,6 +436,7 @@ fun GuideScreen(vm: AppViewModel) {
             val entry = block.entry
             val t = System.currentTimeMillis()
             val actions = buildList {
+                vm.previewChannel()?.takeIf { it.uid != ch.uid }?.let { pc -> add(MenuAction("▶  Back to ${vm.channelLabel(pc)}") { vm.watchPreview() }) }
                 if (entry != null && vm.canCatchUp(ch, entry, t)) {
                     add(MenuAction(if (entry.end > t) "⟲  Watch from the start" else "⟲  Watch") { vm.lastFocusedChannelId = ch.streamId; vm.playCatchup(ch, entry, Screen.Guide) })
                 }

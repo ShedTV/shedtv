@@ -146,6 +146,9 @@ fun LiveTvScreen(vm: AppViewModel) {
                 color = Palette.TextMuted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(start = 6.dp, top = 6.dp, bottom = 8.dp),
             )
+            vm.previewChannel()?.let { pc ->
+                Row(Modifier.padding(start = 4.dp, bottom = 6.dp)) { SmallButton("▶  Back to ${vm.channelLabel(pc)}") { vm.watchPreview() } }
+            }
             if (channels.isEmpty()) {
                 Text(
                     if (vm.selectedCategoryId == com.matchday.tv.CATEGORY_FAVOURITES)
