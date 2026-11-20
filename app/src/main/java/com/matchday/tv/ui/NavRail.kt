@@ -2,6 +2,8 @@
 
 package com.matchday.tv.ui
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -85,6 +87,8 @@ fun NavRail(vm: AppViewModel, current: Screen) {
             .width(76.dp)
             .fillMaxHeight()
             .background(Color(0x99000000))
+            // Short screens (phones on their side): the menu scrolls so Settings is always reachable.
+            .verticalScroll(rememberScrollState())
             .padding(vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp),
