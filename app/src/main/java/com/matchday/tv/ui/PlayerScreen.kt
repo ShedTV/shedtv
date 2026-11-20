@@ -2,6 +2,9 @@
 
 package com.matchday.tv.ui
 
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import android.app.Activity
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.activity.compose.BackHandler
@@ -336,6 +339,19 @@ fun PlayerScreen(vm: AppViewModel) {
                     }
                     else -> false
                 }
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { if (!showOverlay) poke() else { showOverlay = false; listOpen = true } },
+                    onLongPress = { showOverlay = false; menuOpen = true },
+                )
+            }
+            .pointerInput(Unit) {
+                var dy = 0f
+                detectVerticalDragGestures(onDragEnd = {
+                    if (dy < -120f) vm.zap(1) else if (dy > 120f) vm.zap(-1)
+                    dy = 0f
+                }) { _, d -> dy += d }
             }
             .focusRequester(focus)
             .focusable(),

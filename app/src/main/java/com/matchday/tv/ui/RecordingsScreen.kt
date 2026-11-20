@@ -2,6 +2,9 @@
 
 package com.matchday.tv.ui
 
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -224,6 +227,13 @@ fun RecordingPlayerScreen(vm: AppViewModel) {
                     AndroidKeyEvent.KEYCODE_DPAD_UP, AndroidKeyEvent.KEYCODE_INFO -> { poke(); true }
                     else -> false
                 }
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { if (!showOverlay) poke() else { if (player.isPlaying) player.pause() else player.play(); poke() } },
+                    onDoubleTap = { o -> if (o.x < size.width / 2) seekBy(-10_000) else seekBy(30_000) },
+                    onLongPress = { showOverlay = false; menuOpen = true },
+                )
             }
             .focusRequester(focus).focusable(),
     ) {

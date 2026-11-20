@@ -2,6 +2,9 @@
 
 package com.matchday.tv.ui
 
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.drawWithContent
@@ -140,10 +143,15 @@ fun FocusTile(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val shape = RoundedCornerShape(corner)
+    val touchFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     Surface(
         onClick = onClick,
         onLongClick = onLongClick,
-        modifier = modifier,
+        // TV surfaces only answer the remote: taps and long presses on touch screens come in here.
+        modifier = modifier.focusRequester(touchFocus).touchTap(
+            onTap = { runCatching { touchFocus.requestFocus() }; onClick() },
+            onLongPress = onLongClick?.let { l -> { runCatching { touchFocus.requestFocus() }; l() } },
+        ),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent,
@@ -284,3 +292,11 @@ fun ScreenClock(modifier: Modifier = Modifier) {
         modifier = modifier.background(Color(0xB307090C), androidx.compose.foundation.shape.RoundedCornerShape(8.dp)).then(Modifier.padding(horizontal = 10.dp, vertical = 3.dp)),
     )
 }
+
+
+/** Tap and long-press for phones and tablets (TV components only listen to the remote). */
+fun Modifier.touchTap(onTap: () -> Unit, onLongPress: (() -> Unit)? = null): Modifier = this.then(
+    Modifier.pointerInput(onTap, onLongPress) {
+        detectTapGestures(onTap = { onTap() }, onLongPress = onLongPress?.let { l -> { _ -> l() } })
+    },
+)

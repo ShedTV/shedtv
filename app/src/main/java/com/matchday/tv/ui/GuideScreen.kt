@@ -2,6 +2,8 @@
 
 package com.matchday.tv.ui
 
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -370,7 +372,22 @@ fun GuideScreen(vm: AppViewModel) {
                                     .background(Palette.Accent)
                             )
                         }
-                        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.fillMaxSize()) {
+                        var dragX by remember { mutableStateOf(0f) }
+                        LazyColumn(
+                            state = listState, verticalArrangement = Arrangement.spacedBy(3.dp),
+                            modifier = Modifier.fillMaxSize().pointerInput(earliest) {
+                                // Swipe sideways to move through time, half an hour per step.
+                                detectHorizontalDragGestures(onDragEnd = { dragX = 0f }) { _, dx ->
+                                    dragX += dx
+                                    val step = 110.dp.toPx()
+                                    while (dragX <= -step) { dragX += step; windowStart += HALF_HOUR; anchor = maxOf(anchor, windowStart) }
+                                    while (dragX >= step) {
+                                        dragX -= step
+                                        if (windowStart - HALF_HOUR >= earliest) { windowStart -= HALF_HOUR; anchor = minOf(anchor, windowStart + WINDOW - 1) }
+                                    }
+                                }
+                            },
+                        ) {
                             itemsIndexed(channels, key = { _, c -> c.streamId }) { index, ch ->
                                 val shortEpg = vm.epg[ch.uid]
                                 val visible = remember(ch.streamId, vm.guide, shortEpg, windowStart, earliest) {
@@ -385,6 +402,20 @@ fun GuideScreen(vm: AppViewModel) {
                                     x = ::x,
                                     windowStart = windowStart,
                                     windowEnd = windowEnd,
+                                    onTapBlock = { b ->
+                                        val already = index == row && selectedBlock?.start == b.start && gridFocused == 1
+                                        row = index
+                                        anchor = maxOf(b.start, windowStart)
+                                        runCatching { gridFocus.requestFocus() }
+                                        if (already) {
+                                            vm.lastFocusedChannelId = ch.streamId
+                                            val e = b.entry
+                                            if (e != null && b.end <= System.currentTimeMillis() && vm.canCatchUp(ch, e)) vm.playCatchup(ch, e, Screen.Guide)
+                                            else vm.play(ch, from = Screen.Guide)
+                                        }
+                                    },
+                                    onHoldBlock = { b -> row = index; anchor = maxOf(b.start, windowStart); menuFor = ch to b },
+                                    onTapChannel = { vm.lastFocusedChannelId = ch.streamId; vm.play(ch, from = Screen.Guide) },
                                 )
                             }
                         }
@@ -482,10 +513,14 @@ private fun GuideRow(
     x: (Long) -> Dp,
     windowStart: Long,
     windowEnd: Long,
+    onTapBlock: (Block) -> Unit = {},
+    onHoldBlock: (Block) -> Unit = {},
+    onTapChannel: () -> Unit = {},
 ) {
     Row(Modifier.fillMaxWidth().height(ROW_HEIGHT)) {
         Row(
             Modifier
+                .touchTap(onTapChannel)
                 .width(CHANNEL_COL)
                 .fillMaxHeight()
                 .padding(end = 8.dp)
@@ -519,6 +554,7 @@ private fun GuideRow(
                 Column(
                     Modifier
                         .offset(x = left)
+                        .touchTap(onTap = { onTapBlock(b) }, onLongPress = { onHoldBlock(b) })
                         .width(width)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(9.dp))

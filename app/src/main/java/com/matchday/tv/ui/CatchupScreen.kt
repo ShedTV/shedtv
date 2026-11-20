@@ -2,6 +2,9 @@
 
 package com.matchday.tv.ui
 
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import android.app.Activity
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.activity.compose.BackHandler
@@ -282,6 +285,13 @@ fun CatchupScreen(vm: AppViewModel) {
                     AndroidKeyEvent.KEYCODE_DPAD_UP, AndroidKeyEvent.KEYCODE_INFO -> { poke(); true }
                     else -> false
                 }
+            }
+            .pointerInput(Unit) {
+                detectTapGestures(
+                    onTap = { if (!showOverlay) poke() else { if (player.isPlaying) player.pause() else player.play(); poke() } },
+                    onDoubleTap = { o -> if (o.x < size.width / 2) seekTo(shown() - 30_000) else seekTo(shown() + 30_000) },
+                    onLongPress = { showOverlay = false; menuOpen = true },
+                )
             }
             .focusRequester(focus).focusable(),
     ) {

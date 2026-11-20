@@ -102,10 +102,10 @@ fun LoginScreen(
                 focus.moveFocus(FocusDirection.Down)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = { playlist = false }) {
+                Button(onClick = { playlist = false }, modifier = Modifier.touchTap({ playlist = false })) {
                     Text((if (!playlist) "● " else "") + "Xtream login", fontSize = 15.sp, fontWeight = if (!playlist) FontWeight.Bold else FontWeight.Normal)
                 }
-                Button(onClick = { playlist = true }) {
+                Button(onClick = { playlist = true }, modifier = Modifier.touchTap({ playlist = true })) {
                     Text((if (playlist) "● " else "") + "M3U playlist", fontSize = 15.sp, fontWeight = if (playlist) FontWeight.Bold else FontWeight.Normal)
                 }
             }
@@ -116,7 +116,8 @@ fun LoginScreen(
                 Field("TV guide address (optional, XMLTV)", epgUrl, { epgUrl = it }, Modifier, KeyboardType.Uri, imeAction = ImeAction.Done) {
                     submit()
                 }
-                Button(onClick = { name = name.ifBlank { "ShedTV demo" }; server = "https://shedtv.app/demo.m3u"; epgUrl = "" }) {
+                val useDemo = { name = name.ifBlank { "ShedTV demo" }; server = "https://shedtv.app/demo.m3u"; epgUrl = "" }
+                Button(onClick = useDemo, modifier = Modifier.touchTap(useDemo)) {
                     Text("Use the ShedTV demo playlist", fontSize = 15.sp)
                 }
             } else {
@@ -135,17 +136,17 @@ fun LoginScreen(
             }
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(onClick = { submit() }) {
+                Button(onClick = { submit() }, modifier = Modifier.touchTap({ submit() })) {
                     Text("Save and connect", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 12.dp))
                 }
                 if (onCancel != null) {
-                    Button(onClick = onCancel) {
+                    Button(onClick = onCancel, modifier = Modifier.touchTap(onCancel)) {
                         Text("Cancel", fontSize = 18.sp, modifier = Modifier.padding(horizontal = 12.dp))
                     }
                 }
             }
             if (onTransfer != null) {
-                Button(onClick = onTransfer) {
+                Button(onClick = onTransfer, modifier = Modifier.touchTap(onTransfer)) {
                     Text("📱  Set up from my phone or another ShedTV", fontSize = 16.sp, modifier = Modifier.padding(horizontal = 8.dp))
                 }
             }
