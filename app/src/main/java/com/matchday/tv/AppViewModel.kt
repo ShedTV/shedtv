@@ -948,6 +948,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Save a new or edited subscription from the form, then connect to it. */
+    /** What was typed in the form last time it failed, so it comes back filled in. */
+    var failedSubscription by mutableStateOf<Subscription?>(null)
+
     fun saveSubscription(name: String, credentials: Credentials) {
         val editing = editingSubscription
         val sub = (editing ?: Subscription(id = Prefs.newId(), name = "", server = "", username = "", password = "")).copy(
@@ -963,6 +966,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun startAddSubscription() {
         editingSubscription = null
+        failedSubscription = null
         error = null
         screen = Screen.EditSubscription
     }
@@ -975,6 +979,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     fun cancelEdit() {
         error = null
+        failedSubscription = null
         editingSubscription = null
         screen = if (client != null) Screen.Settings else Screen.Login
     }
@@ -1057,7 +1062,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
                 clearSession()
-                if (saveOnSuccess) persist(sub)
+                if (saveOnSuccess) { persist(sub); failedSubscription = null }
                 activeSubscription = sub
                 prefs.activeId = sub.id
                 favourites = prefs.favourites(sub.id)
@@ -1081,7 +1086,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                 loadGuide()
                 loadBackups()
             } catch (e: Exception) {
-                error = "${sub.name}: " + (e.message ?: "couldn't connect to the provider.")
+                // "https://" typed for a server that only speaks plain http: try http:// once, quietly.
+                val tlsMismatch = e is javax.net.ssl.SSLException || (e.message ?: "").contains("TLS", true)
+                if (tlsMismatch && sub.server.startsWith("https://")) {
+                    connect(sub.copy(server = "http://" + sub.server.removePrefix("https://")), saveOnSuccess, attempts)
+                    return@launch
+                }
+                error = "${sub.name}: " + when {
+                    tlsMismatch -> "the server's secure connection didn't work. Check the address, including http:// or https:// and the port number."
+                    else -> e.message ?: "couldn't connect to the provider."
+                }
+                // Keep what was typed, so the form isn't empty after a mistake.
+                if (saveOnSuccess) failedSubscription = sub
                 UserAgents.current = previous?.userAgent ?: UserAgents.DEFAULT
                 val noNetwork = e is java.net.UnknownHostException || e is java.net.ConnectException || e is java.net.SocketTimeoutException
                 if (noNetwork && !hadSession && com.matchday.tv.download.DownloadManager.items.any { it.status == "done" }) {

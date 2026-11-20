@@ -201,7 +201,7 @@ private fun screenTransition(from: Screen, to: Screen, animate: Boolean): Conten
 private fun ScreenFor(vm: AppViewModel, screen: Screen) {
     when (screen) {
         Screen.Login -> LoginScreen(
-            initial = vm.editingSubscription,
+            initial = vm.editingSubscription ?: vm.failedSubscription,
             error = vm.error,
             title = "Add your subscription",
             onCancel = null,
@@ -209,7 +209,7 @@ private fun ScreenFor(vm: AppViewModel, screen: Screen) {
             onSubmit = { name, creds -> vm.saveSubscription(name, creds) },
         )
         Screen.EditSubscription -> LoginScreen(
-            initial = vm.editingSubscription,
+            initial = vm.editingSubscription ?: vm.failedSubscription,
             error = vm.error,
             title = if (vm.editingSubscription == null) "Add a subscription" else "Edit subscription",
             onCancel = if (vm.subscriptions.isEmpty()) null else ({ vm.cancelEdit() }),
