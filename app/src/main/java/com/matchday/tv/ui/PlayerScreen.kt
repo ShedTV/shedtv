@@ -107,6 +107,9 @@ fun PlayerScreen(vm: AppViewModel) {
     var behindMs by remember { mutableStateOf(0L) }
     var paused by remember { mutableStateOf(false) }
     var listOpen by remember { mutableStateOf(false) }
+    // In the channel list: null = channels, otherwise showing the category list.
+    var browseCategory by remember { mutableStateOf<String?>(null) }
+    var showCategories by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     val player = live.player
 
@@ -265,7 +268,8 @@ fun PlayerScreen(vm: AppViewModel) {
     BackHandler {
         when {
             menuOpen -> { menuOpen = false; runCatching { focus.requestFocus() } }
-            listOpen -> { listOpen = false; runCatching { focus.requestFocus() } }
+            listOpen && showCategories -> showCategories = false
+            listOpen -> { listOpen = false; browseCategory = null; runCatching { focus.requestFocus() } }
             showOverlay -> showOverlay = false
             else -> vm.closePlayer()
         }
@@ -298,8 +302,9 @@ fun PlayerScreen(vm: AppViewModel) {
                 // While the channel list is open, it gets the remote (Right closes it).
                 if (menuOpen) return@onPreviewKeyEvent false
                 if (listOpen) {
-                    if (event.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_RIGHT) {
+                    if (event.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_RIGHT && !showCategories) {
                         listOpen = false
+                        browseCategory = null
                         runCatching { focus.requestFocus() }
                         return@onPreviewKeyEvent true
                     }
@@ -387,9 +392,18 @@ fun PlayerScreen(vm: AppViewModel) {
             enter = androidx.compose.animation.slideInHorizontally { -it } + fadeIn(),
             exit = androidx.compose.animation.slideOutHorizontally { -it } + fadeOut(),
         ) {
-            ChannelListPanel(vm) { index ->
-                vm.playAt(index)
+            ChannelListPanel(
+                vm,
+                categoryId = browseCategory ?: vm.playingCategoryId,
+                showCategories = showCategories,
+                onShowCategories = { showCategories = it },
+                onBrowse = { browseCategory = it; showCategories = false },
+            ) { catId, ch ->
+                if (catId == vm.playingCategoryId) vm.playAt(vm.playlist.indexOfFirst { it.uid == ch.uid })
+                else vm.playFromCategory(catId, ch)
                 listOpen = false
+                browseCategory = null
+                showCategories = false
                 runCatching { focus.requestFocus() }
             }
         }
@@ -436,44 +450,101 @@ fun PlayerScreen(vm: AppViewModel) {
     }
 }
 
-/** Slim channel list down the left of the picture; the match keeps playing behind it. */
+/** Slim channel list down the left of the picture; the match keeps playing behind it.
+ *  Left from the channels opens the category list; OK or Right on a category shows its channels. */
 @Composable
-private fun ChannelListPanel(vm: AppViewModel, onPick: (Int) -> Unit) {
+private fun ChannelListPanel(
+    vm: AppViewModel,
+    categoryId: String,
+    showCategories: Boolean,
+    onShowCategories: (Boolean) -> Unit,
+    onBrowse: (String) -> Unit,
+    onPick: (String, com.matchday.tv.data.Channel) -> Unit,
+) {
     val now = rememberNow()
-    val list = vm.playlist
-    val state = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = (vm.playingIndex - 4).coerceAtLeast(0))
-    val current = remember { FocusRequester() }
-    LaunchedEffect(Unit) { delay(60); runCatching { current.requestFocus() } }
+    val list = remember(categoryId, vm.playlist) {
+        if (categoryId == vm.playingCategoryId) vm.playlist else vm.channelsInCategory(categoryId)
+    }
+    val playingUid = vm.currentChannel?.uid
+    val startIndex = list.indexOfFirst { it.uid == playingUid }.coerceAtLeast(0)
+    val catName = vm.categoryList.firstOrNull { it.id == categoryId }?.name ?: "Channels"
     Column(
         Modifier.fillMaxHeight().width(420.dp)
             .background(Brush.horizontalGradient(listOf(Color(0xF507090C), Color(0xE607090C), Color(0x0007090C))))
             .padding(start = 24.dp, top = 22.dp, end = 40.dp),
     ) {
-        val cat = vm.categoryList.firstOrNull { it.id == vm.selectedCategoryId }?.name ?: "Channels"
-        Text(cat.uppercase(), color = Palette.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-        Text("OK to watch  ·  Back or ▶ to close", color = Palette.TextMuted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 10.dp))
-        androidx.compose.foundation.lazy.LazyColumn(
-            state = state,
-            verticalArrangement = Arrangement.spacedBy(3.dp),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp, horizontal = 4.dp),
-        ) {
-            items(list.size, key = { list[it].streamId }) { i ->
-                val ch = list[i]
-                val playing = i == vm.playingIndex
-                LaunchedEffect(ch.streamId) { vm.loadEpg(ch) }
-                val (nowProg, _) = vm.programmesFor(ch).nowAndNext(now)
-                FocusTile(
-                    onClick = { onPick(i) }, selected = playing, corner = 10.dp, focusedScale = 1.02f,
-                    modifier = Modifier.fillMaxWidth().then(if (playing) Modifier.focusRequester(current) else Modifier),
-                ) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        ChannelLogo(ch, 34)
-                        Column(Modifier.weight(1f)) {
-                            Text(ch.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(nowProg?.title ?: "", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.7f))
-                            if (nowProg != null) ProgressBar(nowProg.progress(now), Modifier.fillMaxWidth().padding(top = 4.dp), height = 3.dp)
+        if (showCategories) {
+            Text("CATEGORIES", color = Palette.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("OK to open  ·  Back to return", color = Palette.TextMuted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 10.dp))
+            val cats = vm.categoryList
+            val catIndex = cats.indexOfFirst { it.id == categoryId }.coerceAtLeast(0)
+            val state = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = (catIndex - 4).coerceAtLeast(0))
+            val current = remember { FocusRequester() }
+            LaunchedEffect(Unit) { delay(60); runCatching { current.requestFocus() } }
+            androidx.compose.foundation.lazy.LazyColumn(
+                state = state,
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp, horizontal = 4.dp),
+            ) {
+                items(cats.size, key = { cats[it].id }) { i ->
+                    val c = cats[i]
+                    val open = {
+                        if (vm.isLocked(c.id)) vm.askPin("Enter your PIN to open this category") { onBrowse(c.id) } else onBrowse(c.id)
+                    }
+                    FocusTile(
+                        onClick = open, selected = c.id == categoryId, corner = 10.dp, focusedScale = 1.02f,
+                        modifier = Modifier.fillMaxWidth()
+                            .then(if (i == catIndex) Modifier.focusRequester(current) else Modifier)
+                            .onPreviewKeyEvent { e ->
+                                if (e.type == KeyEventType.KeyDown && e.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_RIGHT) { open(); true } else false
+                            },
+                    ) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(c.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                            Text(vm.channelCount(c.id).toString(), fontSize = 12.sp,
+                                color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.6f))
+                        }
+                    }
+                }
+            }
+        } else {
+            Text("◀ " + catName.uppercase(), color = Palette.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp,
+                modifier = Modifier.touchTap({ onShowCategories(true) }))
+            Text("OK to watch  ·  ◀ categories  ·  Back or ▶ to close", color = Palette.TextMuted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 10.dp))
+            val state = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = (startIndex - 4).coerceAtLeast(0))
+            val current = remember(categoryId) { FocusRequester() }
+            LaunchedEffect(categoryId) { delay(60); runCatching { current.requestFocus() } }
+            if (list.isEmpty()) {
+                Text("No channels here.", color = Palette.TextMuted, fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 8.dp))
+                LaunchedEffect(Unit) { onShowCategories(true) }
+            }
+            androidx.compose.foundation.lazy.LazyColumn(
+                state = state,
+                verticalArrangement = Arrangement.spacedBy(3.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 6.dp, horizontal = 4.dp),
+                modifier = Modifier.onPreviewKeyEvent { e ->
+                    if (e.type == KeyEventType.KeyDown && e.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_LEFT) { onShowCategories(true); true } else false
+                },
+            ) {
+                items(list.size, key = { list[it].uid }) { i ->
+                    val ch = list[i]
+                    val playing = ch.uid == playingUid
+                    LaunchedEffect(ch.streamId) { vm.loadEpg(ch) }
+                    val (nowProg, _) = vm.programmesFor(ch).nowAndNext(now)
+                    FocusTile(
+                        onClick = { onPick(categoryId, ch) }, selected = playing, corner = 10.dp, focusedScale = 1.02f,
+                        modifier = Modifier.fillMaxWidth().then(if (i == startIndex) Modifier.focusRequester(current) else Modifier),
+                    ) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            ChannelLogo(ch, 34)
+                            Column(Modifier.weight(1f)) {
+                                Text(vm.channelLabel(ch), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(nowProg?.title ?: "", fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    color = androidx.tv.material3.LocalContentColor.current.copy(alpha = 0.7f))
+                                if (nowProg != null) ProgressBar(nowProg.progress(now), Modifier.fillMaxWidth().padding(top = 4.dp), height = 3.dp)
+                            }
                         }
                     }
                 }

@@ -698,15 +698,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     fun channelLabel(channel: Channel): String =
         if (mergeQualities) com.matchday.tv.data.ChannelNames.clean(channel.name) else channel.name
 
-    val visibleChannels: List<Channel> by derivedStateOf {
-        merge(
-            when (selectedCategoryId) {
-                CATEGORY_ALL -> shownChannels
-                CATEGORY_FAVOURITES -> allChannels.filter { it.streamId in favourites }
-                CATEGORY_CATCHUP -> catchupChannels
-                else -> allChannels.filter { it.categoryId == selectedCategoryId }
-            }
-        )
+    val visibleChannels: List<Channel> by derivedStateOf { channelsInCategory(selectedCategoryId) }
+
+    /** The channels a category shows, as the Live TV list would show them. */
+    fun channelsInCategory(id: String): List<Channel> = merge(
+        when (id) {
+            CATEGORY_ALL -> shownChannels
+            CATEGORY_FAVOURITES -> allChannels.filter { it.streamId in favourites }
+            CATEGORY_CATCHUP -> catchupChannels
+            else -> allChannels.filter { it.categoryId == id }
+        }
+    )
+
+    /** The category the in-player channel list is showing (the one you're watching from). */
+    var playingCategoryId by mutableStateOf(CATEGORY_ALL)
+        private set
+
+    /** Pick a channel from another category in the in-player list: zapping then follows that category. */
+    fun playFromCategory(categoryId: String, channel: Channel) {
+        val list = channelsInCategory(categoryId).ifEmpty { listOf(channel) }
+        val idx = list.indexOfFirst { it.uid == channel.uid }.coerceAtLeast(0)
+        previousIndex = null
+        playlist = list
+        playingIndex = idx
+        playingCategoryId = categoryId
+        selectedCategoryId = categoryId
+        lastFocusedChannelId = channel.streamId
     }
 
     /** All provider categories, including hidden ones, for the manage page. */
@@ -1412,6 +1429,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             ?: listOf(channel) // a channel from another subscription
         playlist = list
         playingIndex = list.indexOfFirst { it.uid == channel.uid }.coerceAtLeast(0)
+        playingCategoryId = if (list === visibleChannels) selectedCategoryId else CATEGORY_ALL
         previousIndex = null
         lastFocusedChannelId = channel.streamId
         screen = Screen.Player

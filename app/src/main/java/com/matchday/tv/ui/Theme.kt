@@ -2,6 +2,8 @@
 
 package com.matchday.tv.ui
 
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.ui.focus.focusRequester
@@ -328,3 +330,17 @@ fun Modifier.pinchToFill(onFill: (Boolean) -> Unit): Modifier = this.then(
         }
     },
 )
+
+/**
+ * When focus moves into this list from outside (Left from the page, Up from the episodes...), land on
+ * [target] — the item you're on — instead of whichever item happens to be level with where you were.
+ */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+fun Modifier.enterAt(target: androidx.compose.ui.focus.FocusRequester): Modifier = this
+    .focusProperties {
+        enter = {
+            if (runCatching { target.requestFocus() }.isSuccess) androidx.compose.ui.focus.FocusRequester.Cancel
+            else androidx.compose.ui.focus.FocusRequester.Default
+        }
+    }
+    .focusGroup()

@@ -207,6 +207,18 @@ private fun Field(
                     })
                     setOnEditorActionListener { _, _, _ -> latestAction.value(); true }
                     setOnFocusChangeListener { _, has -> focused = has }
+                    isFocusableInTouchMode = true
+                    // Ask for the keyboard ourselves on OK/Enter or a tap. On first run the box can be
+                    // selected before the window is ready, and Android then never links the keyboard to it.
+                    setOnKeyListener { v, code, ev ->
+                        val ok = code == android.view.KeyEvent.KEYCODE_DPAD_CENTER || code == android.view.KeyEvent.KEYCODE_ENTER ||
+                            code == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER || code == android.view.KeyEvent.KEYCODE_BUTTON_A
+                        if (ok && ev.action == android.view.KeyEvent.ACTION_UP) { showKeyboard(v as android.widget.EditText); true } else ok
+                    }
+                    setOnTouchListener { v, ev ->
+                        if (ev.action == android.view.MotionEvent.ACTION_UP) v.post { showKeyboard(v as android.widget.EditText) }
+                        false
+                    }
                 }
             },
             update = { if (it.text.toString() != value) it.setText(value) },
@@ -214,6 +226,16 @@ private fun Field(
                 .background(Palette.Card, RoundedCornerShape(10.dp))
                 .border(if (focused) 2.dp else 1.dp, if (focused) Palette.Accent else Palette.TextMuted, RoundedCornerShape(10.dp)),
         )
+    }
+}
+
+private fun showKeyboard(v: android.widget.EditText) {
+    v.requestFocus()
+    v.setSelection(v.text.length)
+    val imm = v.context.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+    imm.restartInput(v)
+    if (!imm.showSoftInput(v, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)) {
+        v.postDelayed({ imm.showSoftInput(v, android.view.inputmethod.InputMethodManager.SHOW_FORCED) }, 150)
     }
 }
 

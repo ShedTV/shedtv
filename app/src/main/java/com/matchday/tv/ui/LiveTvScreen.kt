@@ -98,7 +98,7 @@ fun LiveTvScreen(vm: AppViewModel) {
             Row(Modifier.padding(start = 4.dp)) { SmallButton("⚙  Manage categories") { vm.navigate(com.matchday.tv.Screen.Categories) } }
             Spacer(Modifier.height(4.dp))
             LazyColumn(
-                Modifier.weight(1f),
+                Modifier.weight(1f).enterAt(selectedCat),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 contentPadding = PaddingValues(vertical = 6.dp, horizontal = 4.dp),
             ) {

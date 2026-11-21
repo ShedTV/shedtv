@@ -135,7 +135,7 @@ private fun BrowseLayout(
                     modifier = Modifier.padding(start = 6.dp, top = 2.dp))
                 Spacer(Modifier.height(14.dp))
                 LazyColumn(
-                    Modifier.weight(1f),
+                    Modifier.weight(1f).enterAt(firstCategory),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                     contentPadding = PaddingValues(vertical = 6.dp, horizontal = 4.dp),
                 ) {
@@ -363,11 +363,12 @@ fun SeriesDetailsScreen(vm: AppViewModel) {
             }
 
             if (seasons.size > 1) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 6.dp, horizontal = 2.dp)) {
+                val seasonFocus = remember { FocusRequester() }
+                LazyRow(Modifier.enterAt(seasonFocus), horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 6.dp, horizontal = 2.dp)) {
                     items(seasons.keys.toList(), key = { it }) { s ->
                         FocusTile(
                             onClick = { lib.selectedSeason = s }, selected = s == lib.selectedSeason, corner = 8.dp,
-                            modifier = Modifier.onFocusChanged { if (it.isFocused) lib.selectedSeason = s },
+                            modifier = Modifier.then(if (s == lib.selectedSeason) Modifier.focusRequester(seasonFocus) else Modifier).onFocusChanged { if (it.isFocused) lib.selectedSeason = s },
                         ) {
                             Text("Season $s", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
                         }

@@ -209,7 +209,7 @@ fun GuideScreen(vm: AppViewModel) {
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(3.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 6.dp),
-                modifier = Modifier.fillMaxHeight(),
+                modifier = Modifier.fillMaxHeight().enterAt(catFocus),
             ) {
                 itemsIndexed(cats, key = { _, c -> c.id }) { _, c ->
                     val isSel = c.id == vm.selectedCategoryId

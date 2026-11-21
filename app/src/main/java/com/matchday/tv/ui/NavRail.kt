@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -82,8 +83,10 @@ fun menuLabel(id: String): String = railById[id]?.label ?: id
 
 @Composable
 fun NavRail(vm: AppViewModel, current: Screen) {
+    val currentItem = remember { androidx.compose.ui.focus.FocusRequester() }
     Column(
         Modifier
+            .enterAt(currentItem)
             .width(76.dp)
             .fillMaxHeight()
             .background(Color(0x99000000))
@@ -109,7 +112,8 @@ fun NavRail(vm: AppViewModel, current: Screen) {
                 selected = selected,
                 corner = 12.dp,
                 focusedScale = 1.06f,
-                modifier = Modifier.width(62.dp),
+                modifier = Modifier.width(62.dp)
+                    .then(if (selected) Modifier.focusRequester(currentItem) else Modifier),
             ) {
                 Column(
                     Modifier.fillMaxWidth().padding(vertical = 6.dp),
