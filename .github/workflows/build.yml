@@ -69,6 +69,12 @@ jobs:
             --title "ShedTV build ${{ github.run_number }}" \
             --notes "Automatic build of ${{ github.sha }}" \
             --latest
+          # GitHub occasionally leaves a new release as a draft, which hides it from the website and the updater.
+          for i in 1 2 3 4 5; do
+            if [ "$(gh release view latest --json isDraft -q .isDraft 2>/dev/null)" = "false" ]; then break; fi
+            sleep 10
+            gh release edit latest --draft=false --latest || true
+          done
 
   # The website (shedtv.app): homepage, install link and the update file the app checks.
   site:
