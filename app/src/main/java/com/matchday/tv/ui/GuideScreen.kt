@@ -100,6 +100,20 @@ fun GuideScreen(vm: AppViewModel) {
 
     var windowStart by remember { mutableLongStateOf(floorHalfHour(System.currentTimeMillis())) }
     var anchor by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    // Keep up with the clock. If the guide was showing "now" (it stays open for hours when it's the start
+    // screen), move it on as time passes; otherwise it would look as if you'd scrolled back on purpose,
+    // and Left would walk back through old programmes instead of stopping at the now line.
+    var lastNow by remember { mutableLongStateOf(now) }
+    LaunchedEffect(now) {
+        val wasLive = windowStart >= floorHalfHour(lastNow)
+        lastNow = now
+        if (wasLive && windowStart < floorHalfHour(now)) {
+            windowStart = floorHalfHour(now)
+            anchor = maxOf(anchor, now)
+        } else if (wasLive && anchor < now && windowStart <= now) {
+            anchor = now // the highlighted programme has finished: move to the one on now
+        }
+    }
     var row by remember(vm.selectedCategoryId) {
         mutableIntStateOf(channels.indexOfFirst { it.streamId == vm.lastFocusedChannelId }.coerceAtLeast(0))
     }
