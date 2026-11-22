@@ -104,8 +104,24 @@ fun CategoriesScreen(vm: AppViewModel) {
             Text("Clear the filter to move categories.", color = Palette.TextMuted, fontSize = 12.sp)
         }
 
+        // While moving, keep the category you're carrying on screen and selected. Without this it slid out
+        // of view as it went up, the list dropped it, and the move stopped part-way.
+        val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+        val movingFocus = remember { FocusRequester() }
+        val movingIndex = shown.indexOfFirst { it.id == moving }
+        LaunchedEffect(moving, movingIndex) {
+            if (moving == null || movingIndex < 0) return@LaunchedEffect
+            val info = listState.layoutInfo.visibleItemsInfo
+            val first = info.firstOrNull()?.index ?: 0
+            val last = info.lastOrNull()?.index ?: 0
+            val count = (last - first + 1).coerceAtLeast(1)
+            if (movingIndex <= first + 1) listState.scrollToItem((movingIndex - 2).coerceAtLeast(0))
+            else if (movingIndex >= last - 1) listState.scrollToItem((movingIndex - count + 3).coerceAtLeast(0))
+            runCatching { movingFocus.requestFocus() }
+        }
         // One list, top to bottom, in the same order as Live TV: easy to follow with a remote.
         androidx.compose.foundation.lazy.LazyColumn(
+            state = listState,
             verticalArrangement = Arrangement.spacedBy(6.dp),
             contentPadding = PaddingValues(top = 8.dp, bottom = 48.dp, start = 4.dp, end = 4.dp),
             modifier = Modifier.fillMaxHeight().widthIn(max = 760.dp).fillMaxWidth(),
@@ -117,7 +133,7 @@ fun CategoriesScreen(vm: AppViewModel) {
                     onClick = { if (isMoving) moving = null else vm.setCategoriesHidden(listOf(c.id), isShown) },
                     onLongClick = { if (words.isEmpty()) moving = c.id },
                     selected = isMoving, corner = 10.dp, focusedScale = if (isMoving) 1.03f else 1.01f,
-                    modifier = Modifier.fillMaxWidth().onPreviewKeyEvent { e ->
+                    modifier = Modifier.fillMaxWidth().then(if (isMoving) Modifier.focusRequester(movingFocus) else Modifier).onPreviewKeyEvent { e ->
                         if (!isMoving || e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                         when (e.key.nativeKeyCode) {
                             android.view.KeyEvent.KEYCODE_DPAD_UP, android.view.KeyEvent.KEYCODE_DPAD_LEFT -> { vm.moveCategory(c.id, -1); true }
