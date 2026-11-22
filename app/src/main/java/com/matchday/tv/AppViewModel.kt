@@ -145,6 +145,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Remembered here so Settings stays on the same section when the look changes. */
     var settingsTab by mutableStateOf(0)
 
+    /** The setting last changed, so Settings can land back on it after a change rebuilds the screen (colour, text size...). */
+    var settingsFocus: String? = null
+
     init {
         com.matchday.tv.ui.Palette.highContrast = prefs.highContrast
         com.matchday.tv.ui.Palette.accentArgb = prefs.accent
