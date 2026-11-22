@@ -451,6 +451,7 @@ fun GuideScreen(vm: AppViewModel) {
                 if (ch.hasArchive && windowStart >= floorHalfHour(t)) add(MenuAction("⟲  Earlier programmes (catch-up)") { lookBack() })
                 if (windowStart < floorHalfHour(t)) add(MenuAction("▶  Back to now") { windowStart = floorHalfHour(System.currentTimeMillis()); anchor = System.currentTimeMillis() })
                 add(MenuAction(if (vm.isFavourite(ch)) "★  Remove from favourites" else "☆  Add to favourites") { vm.toggleFavourite(ch) })
+                add(MenuAction("↗  Open in another player") { vm.openExternal(ch) })
                 add(MenuAction("☰  Change category") { catsOpen = true })
             }
             OptionsPanel(

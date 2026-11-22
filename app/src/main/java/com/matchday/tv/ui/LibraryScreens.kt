@@ -33,6 +33,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -77,6 +80,7 @@ fun MoviesScreen(vm: AppViewModel) {
             items.firstOrNull { it.id == id }?.let { lib.showMovie(it); vm.navigate(Screen.MovieDetails) }
         },
         sort = lib.movieSort, onSort = { lib.chooseMovieSort(it) }, showSort = cat != com.matchday.tv.CAT_CONTINUE,
+        onRemove = if (cat == com.matchday.tv.CAT_CONTINUE) { id -> lib.forget("movie", id) } else null,
     )
 }
 
@@ -98,6 +102,7 @@ fun SeriesScreen(vm: AppViewModel) {
             items.firstOrNull { it.id == id }?.let { lib.showSeries(it); vm.navigate(Screen.SeriesDetails) }
         },
         sort = lib.seriesSort, onSort = { lib.chooseSeriesSort(it) }, showSort = cat != com.matchday.tv.CAT_CONTINUE,
+        onRemove = if (cat == com.matchday.tv.CAT_CONTINUE) { id -> lib.forget("episode", id) } else null,
     )
 }
 
@@ -116,7 +121,10 @@ private fun BrowseLayout(
     sort: String = "default",
     onSort: (String) -> Unit = {},
     showSort: Boolean = true,
+    /** Continue watching only: hold OK on a poster to take it off the list. */
+    onRemove: ((String) -> Unit)? = null,
 ) {
+    var asking by remember(selected) { mutableStateOf<String?>(null) }
     val firstCategory = remember { FocusRequester() }
     LaunchedEffect(categories.size) {
         delay(80)
@@ -185,7 +193,13 @@ private fun BrowseLayout(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        items(posters, key = { it.id }) { p -> PosterTile(p) { onOpen(p.id) } }
+                        items(posters, key = { it.id }) { p ->
+                            PosterTile(
+                                p, asking = asking == p.id,
+                                onLongClick = onRemove?.let { { asking = p.id } },
+                                onBlur = { if (asking == p.id) asking = null },
+                            ) { if (asking == p.id) { asking = null; onRemove?.invoke(p.id) } else onOpen(p.id) }
+                        }
                     }
                     }
                 }
@@ -195,9 +209,10 @@ private fun BrowseLayout(
 }
 
 @Composable
-private fun PosterTile(p: PosterData, onClick: () -> Unit) {
+private fun PosterTile(p: PosterData, asking: Boolean = false, onLongClick: (() -> Unit)? = null, onBlur: () -> Unit = {}, onClick: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        FocusTile(onClick = onClick, corner = 10.dp, focusedScale = 1.06f, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
+        FocusTile(onClick = onClick, onLongClick = onLongClick, corner = 10.dp, focusedScale = 1.06f,
+            modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).onFocusChanged { if (!it.isFocused) onBlur() }) {
             Box(Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)).background(Palette.Card)) {
                 Text(
                     p.title, color = Palette.TextMuted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 4,
@@ -208,6 +223,12 @@ private fun PosterTile(p: PosterData, onClick: () -> Unit) {
                 }
                 p.progress?.let {
                     ProgressBar(it, Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp), height = 4.dp, track = Color(0x66000000))
+                }
+                if (asking) {
+                    Box(Modifier.fillMaxSize().background(Color(0xD9000000)), contentAlignment = Alignment.Center) {
+                        Text("Remove from Continue watching?\n\nOK to remove\nMove away to keep", color = Color.White, fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(8.dp))
+                    }
                 }
             }
         }
@@ -272,7 +293,8 @@ fun MovieDetailsScreen(vm: AppViewModel) {
             Box(Modifier.width(200.dp).aspectRatio(2f / 3f).clip(RoundedCornerShape(14.dp)).background(Palette.Card)) {
                 if (movie.poster != null) AsyncImage(model = movie.poster, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
-            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // Scrolls, so a long description or cast list is never cut off on a short (phone) screen.
+            Column(Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(movie.name.uppercase(), color = Palette.Text, fontSize = 42.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, lineHeight = 44.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 val meta = listOfNotNull(
                     info?.year?.takeIf { it.isNotBlank() }, info?.genre?.takeIf { it.isNotBlank() },
@@ -304,11 +326,17 @@ fun MovieDetailsScreen(vm: AppViewModel) {
                     ) { if (dl == null) vm.downloadMovie(movie) else vm.navigate(Screen.Downloads) }
                 }
                 lib.detailStatus?.let { Text(it, color = Palette.TextMuted, fontSize = 14.sp) }
+                var more by remember(movie.id) { mutableStateOf(false) }
+                var cut by remember(movie.id) { mutableStateOf(false) }
                 info?.plot?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, color = Palette.TextSoft, fontSize = 15.sp, lineHeight = 22.sp, maxLines = 6, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(620.dp))
+                    Text(it, color = Palette.TextSoft, fontSize = 15.sp, lineHeight = 22.sp, maxLines = if (more) Int.MAX_VALUE else 6, overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { l -> if (!more) cut = l.hasVisualOverflow },
+                        modifier = Modifier.widthIn(max = 620.dp).touchTap({ if (cut || more) more = !more }))
                 }
-                info?.director?.takeIf { it.isNotBlank() }?.let { Text("Director: $it", color = Palette.TextMuted, fontSize = 13.sp, maxLines = 1) }
-                info?.cast?.takeIf { it.isNotBlank() }?.let { Text("Cast: $it", color = Palette.TextMuted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(620.dp)) }
+                info?.director?.takeIf { it.isNotBlank() }?.let { Text("Director: $it", color = Palette.TextMuted, fontSize = 13.sp, maxLines = if (more) Int.MAX_VALUE else 1, overflow = TextOverflow.Ellipsis) }
+                info?.cast?.takeIf { it.isNotBlank() }?.let { Text("Cast: $it", color = Palette.TextMuted, fontSize = 13.sp, maxLines = if (more) Int.MAX_VALUE else 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 620.dp)) }
+                // A button (not just a tap) so remote users can read the rest too.
+                if (cut || more) ActionButton(if (more) "Show less" else "Read more", primary = false) { more = !more }
             }
         }
     }
@@ -338,8 +366,15 @@ fun SeriesDetailsScreen(vm: AppViewModel) {
                 if (seasons.isNotEmpty()) "${seasons.size} season" + (if (seasons.size == 1) "" else "s") else "")
                 .filter { it.isNotBlank() }.joinToString("  ·  ")
             if (meta.isNotBlank()) Text(meta, color = Palette.TextSoft, fontSize = 14.sp)
+            var more by remember(show.id) { mutableStateOf(false) }
+            var cut by remember(show.id) { mutableStateOf(false) }
             (info?.plot?.ifBlank { null } ?: show.plot.ifBlank { null })?.let {
-                Text(it, color = Palette.TextSoft, fontSize = 14.sp, lineHeight = 20.sp, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(640.dp))
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(it, color = Palette.TextSoft, fontSize = 14.sp, lineHeight = 20.sp, maxLines = if (more) 12 else 3, overflow = TextOverflow.Ellipsis,
+                        onTextLayout = { l -> if (!more) cut = l.hasVisualOverflow },
+                        modifier = Modifier.widthIn(max = 640.dp).weight(1f, fill = false).touchTap({ if (cut || more) more = !more }))
+                    if (cut || more) ActionButton(if (more) "Less" else "More", primary = false) { more = !more }
+                }
             }
             lib.detailStatus?.let { Text(it, color = Palette.TextMuted, fontSize = 14.sp) }
 

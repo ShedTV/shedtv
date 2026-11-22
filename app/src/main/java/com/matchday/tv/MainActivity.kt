@@ -78,7 +78,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) hideSystemBars()
+        if (hasFocus) {
+            hideSystemBars()
+            // The TV can drop back to 60Hz behind our back (screensaver, another app, an HDMI handshake): put 50Hz back.
+            val playing = appVm.screen == Screen.Player || appVm.screen == Screen.VodPlayer || appVm.screen == Screen.Catchup || appVm.screen == Screen.RecordingPlayer
+            if (appVm.stay50Hz && !playing) com.matchday.tv.player.FrameRateMatcher.match(this, 50f)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -164,11 +169,12 @@ private fun App(vm: AppViewModel) {
 
 @Composable
 private fun Screens(vm: AppViewModel) {
-    // "Stay at 50Hz": switch once, as the app opens (or the setting is turned on), not when going full screen.
+    // "Stay at 50Hz": hold 50Hz on every screen except the players (which pick the rate for what is playing).
     val activity = androidx.compose.ui.platform.LocalContext.current as android.app.Activity
-    LaunchedEffect(vm.stay50Hz) {
-        if (vm.stay50Hz) com.matchday.tv.player.FrameRateMatcher.match(activity, 50f)
-        else if (vm.screen != Screen.Player && vm.screen != Screen.VodPlayer) com.matchday.tv.player.FrameRateMatcher.reset(activity)
+    LaunchedEffect(vm.stay50Hz, vm.screen) {
+        val playing = vm.screen == Screen.Player || vm.screen == Screen.VodPlayer || vm.screen == Screen.Catchup || vm.screen == Screen.RecordingPlayer
+        if (vm.stay50Hz && !playing) com.matchday.tv.player.FrameRateMatcher.match(activity, 50f)
+        else if (!vm.stay50Hz && !playing) com.matchday.tv.player.FrameRateMatcher.reset(activity)
     }
         // Phones (not tablets or TVs) can turn upright while filling in a subscription, so the keyboard isn't in the way.
         val phone = androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp < 600

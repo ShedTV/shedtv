@@ -1467,6 +1467,31 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         return clientFor(channel.subId)?.streamUrl(channel, fmt)
     }
 
+    /**
+     * Hand a channel to another video player (VLC, MX Player...). Some streams that struggle here play fine
+     * elsewhere. Android shows its own "Open with" list; nothing changes in ShedTV.
+     */
+    fun openExternal(channel: Channel) {
+        val url = streamUrl(channel) ?: run { flash = "Couldn't get that channel's address."; return }
+        val ctx = getApplication<Application>()
+        val ua = subscriptions.firstOrNull { it.id == channel.subId }?.userAgent
+        val view = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+            setDataAndType(android.net.Uri.parse(url), "video/*")
+            putExtra("title", channelLabel(channel))
+            if (!ua.isNullOrBlank()) {
+                putExtra("headers", arrayOf("User-Agent", ua)) // MX Player
+                putExtra("http-user-agent", ua) // VLC
+            }
+        }
+        val chooser = android.content.Intent.createChooser(view, "Open ${channelLabel(channel)} with").addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (ctx.packageManager.queryIntentActivities(view, 0).none { it.activityInfo.packageName != ctx.packageName }) {
+            flash = "No other video player is installed. VLC (free in the app store) works well."
+            return
+        }
+        live.stop() // free the connection: many subscriptions only allow one at a time
+        runCatching { ctx.startActivity(chooser) }.onFailure { flash = "Couldn't open another player." }
+    }
+
     fun closePlayer() {
         screen = returnScreen
     }

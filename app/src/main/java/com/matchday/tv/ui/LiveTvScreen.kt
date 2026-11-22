@@ -78,10 +78,14 @@ fun LiveTvScreen(vm: AppViewModel) {
 
     var inChannels by remember { mutableStateOf(false) }
     val selectedCat = remember { FocusRequester() }
+    // Hold OK on a channel: favourites and "open in another player".
+    var menuFor by remember { mutableStateOf<Channel?>(null) }
     androidx.activity.compose.BackHandler {
-        if (inChannels) { if (runCatching { selectedCat.requestFocus() }.isFailure) runCatching { firstCategory.requestFocus() } }
+        if (menuFor != null) { menuFor = null; runCatching { restoreFocus.requestFocus() } }
+        else if (inChannels) { if (runCatching { selectedCat.requestFocus() }.isFailure) runCatching { firstCategory.requestFocus() } }
         else vm.goHome()
     }
+    Box(Modifier.fillMaxSize()) {
     Row(Modifier.fillMaxSize().background(Palette.Background)) {
     NavRail(vm, com.matchday.tv.Screen.Live)
     Row(
@@ -180,7 +184,7 @@ fun LiveTvScreen(vm: AppViewModel) {
                             // "Preview first": the first OK shows it in the preview, the second goes full screen.
                             if (vm.okAction == "preview" && vm.previewEnabled && !vm.isPreviewing(ch)) vm.preview(ch) else vm.play(ch)
                         },
-                        onLongClick = { vm.toggleFavourite(ch) },
+                        onLongClick = { vm.lastFocusedChannelId = ch.streamId; menuFor = ch },
                     )
                 }
             }
@@ -193,6 +197,21 @@ fun LiveTvScreen(vm: AppViewModel) {
             vm = vm,
             modifier = Modifier.weight(1f).fillMaxHeight().padding(top = 6.dp, bottom = 28.dp),
         )
+    }
+    }
+    menuFor?.let { ch ->
+        Box(Modifier.align(Alignment.CenterEnd)) {
+            OptionsPanel(
+                title = vm.channelLabel(ch),
+                subtitle = "Channel",
+                actions = listOf(
+                    MenuAction(if (vm.isFavourite(ch)) "★  Remove from favourites" else "☆  Add to favourites") { vm.toggleFavourite(ch) },
+                    MenuAction("↗  Open in another player") { vm.openExternal(ch) },
+                    MenuAction("☰  Manage categories") { vm.navigate(com.matchday.tv.Screen.Categories) },
+                ),
+                onClose = { menuFor = null; runCatching { restoreFocus.requestFocus() } },
+            )
+        }
     }
     }
 }

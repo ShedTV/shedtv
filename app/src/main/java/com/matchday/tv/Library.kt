@@ -253,6 +253,15 @@ class Library(
         return make(ep, start).copy(upNext = episodes.drop(index + 1).map { make(it, 0) })
     }
 
+    /** Take a film, or a whole series, off Continue watching. Its resume point goes too. [id] is the item's id or its history id. */
+    fun forget(kind: String, id: String) {
+        val all = history.all()
+        val gone = if (kind == "movie") all.filter { it.kind == "movie" && (it.id == id || it.id.substringAfter(':') == id) }
+        else all.filter { it.kind == "episode" && it.parentId != null && (it.parentId == id || it.parentId.substringAfter(':') == id) }
+        gone.forEach { history.remove(it.kind, it.id) }
+        historyVersion++
+    }
+
     /** Called by the player as it goes; finished items drop out of Continue watching. */
     fun savePosition(p: Playable, position: Long, duration: Long) {
         if (duration <= 0) return

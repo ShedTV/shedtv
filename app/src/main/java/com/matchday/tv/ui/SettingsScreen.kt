@@ -656,10 +656,10 @@ private fun LockSettings(vm: AppViewModel) {
 private fun DisplaySettings(vm: AppViewModel) {
     ChoiceRow(
         "Text size",
-        "Makes all the writing in ShedTV bigger, for easier reading from the sofa.",
+        "How big the writing in ShedTV is. Small fits more on screen (handy on phones); Large and Extra large are easier to read from the sofa.",
         "No effect on speed. At the larger sizes some long names are shortened with \"…\" to fit.",
-        options = listOf(1f to "Normal", 1.15f to "Large", 1.3f to "Extra large"),
-        current = when { vm.textScale < 1.05f -> 1f; vm.textScale <= 1.2f -> 1.15f; else -> 1.3f },
+        options = listOf(0.88f to "Small", 1f to "Normal", 1.15f to "Large", 1.3f to "Extra large"),
+        current = when { vm.textScale < 0.95f -> 0.88f; vm.textScale < 1.05f -> 1f; vm.textScale <= 1.2f -> 1.15f; else -> 1.3f },
     ) { vm.chooseTextScale(it) }
 
     ToggleRow(

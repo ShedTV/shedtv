@@ -27,6 +27,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -108,13 +112,27 @@ fun HomeScreen(vm: AppViewModel) {
             }
 
             val cont = vm.continueWatching()
+            var askRemove by remember { mutableStateOf<String?>(null) }
             if (cont.isNotEmpty()) Section("Continue watching") {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(start = 6.dp, end = 48.dp, top = 10.dp, bottom = 10.dp)) {
                     items(cont, key = { "w" + it.id }) { e ->
-                        FocusTile(onClick = { vm.resume(e) }, corner = 12.dp, focusedScale = 1.05f, modifier = firstMod().width(210.dp)) {
+                        // Hold OK to take it off the list (asks first).
+                        val asking = askRemove == e.id
+                        FocusTile(
+                            onClick = {
+                                if (asking) { askRemove = null; vm.library.forget(e.kind, if (e.kind == "movie") e.id else e.parentId ?: e.id) } else vm.resume(e)
+                            },
+                            onLongClick = { askRemove = e.id },
+                            corner = 12.dp, focusedScale = 1.05f,
+                            modifier = firstMod().width(210.dp).onFocusChanged { if (!it.isFocused && askRemove == e.id) askRemove = null },
+                        ) {
                             Column {
                                 Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).background(Palette.CardRaised)) {
                                     if (e.image != null) AsyncImage(model = e.image, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                                    if (asking) Box(Modifier.fillMaxSize().background(Color(0xD9000000)), contentAlignment = Alignment.Center) {
+                                        Text("OK to remove  ·  move away to keep", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.padding(8.dp))
+                                    }
                                 }
                                 ProgressBar(e.progress, Modifier.fillMaxWidth(), height = 3.dp)
                                 Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {

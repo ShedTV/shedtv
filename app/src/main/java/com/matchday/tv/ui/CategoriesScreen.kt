@@ -20,9 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
@@ -36,6 +33,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -99,17 +99,16 @@ fun CategoriesScreen(vm: AppViewModel) {
         }
         if (confirmAll) Text("That hides every category. Press Hide again to confirm.", color = Palette.Live, fontSize = 13.sp)
         if (moving != null) {
-            Text("Moving: ▲◀ earlier  ·  ▼▶ later  ·  ◀◀ ▶▶ 10 places  ·  OK to drop", color = Palette.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text("Moving: ▲ up  ·  ▼ down  ·  ◀◀ ▶▶ 10 places  ·  OK to drop", color = Palette.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         } else if (words.isNotEmpty()) {
             Text("Clear the filter to move categories.", color = Palette.TextMuted, fontSize = 12.sp)
         }
 
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(260.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        // One list, top to bottom, in the same order as Live TV: easy to follow with a remote.
+        androidx.compose.foundation.lazy.LazyColumn(
+            verticalArrangement = Arrangement.spacedBy(6.dp),
             contentPadding = PaddingValues(top = 8.dp, bottom = 48.dp, start = 4.dp, end = 4.dp),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxHeight().widthIn(max = 760.dp).fillMaxWidth(),
         ) {
             items(shown, key = { it.id }) { c ->
                 val isShown = c.id !in hidden
@@ -117,8 +116,8 @@ fun CategoriesScreen(vm: AppViewModel) {
                 FocusTile(
                     onClick = { if (isMoving) moving = null else vm.setCategoriesHidden(listOf(c.id), isShown) },
                     onLongClick = { if (words.isEmpty()) moving = c.id },
-                    selected = isMoving, corner = 10.dp, focusedScale = if (isMoving) 1.06f else 1.03f,
-                    modifier = Modifier.onPreviewKeyEvent { e ->
+                    selected = isMoving, corner = 10.dp, focusedScale = if (isMoving) 1.03f else 1.01f,
+                    modifier = Modifier.fillMaxWidth().onPreviewKeyEvent { e ->
                         if (!isMoving || e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                         when (e.key.nativeKeyCode) {
                             android.view.KeyEvent.KEYCODE_DPAD_UP, android.view.KeyEvent.KEYCODE_DPAD_LEFT -> { vm.moveCategory(c.id, -1); true }
