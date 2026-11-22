@@ -514,6 +514,16 @@ private fun ChannelListPanel(
             val state = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = (startIndex - 4).coerceAtLeast(0))
             val current = remember(categoryId) { FocusRequester() }
             LaunchedEffect(categoryId) { delay(60); runCatching { current.requestFocus() } }
+            // The list loops: down from the last channel goes to the first, up from the first to the last.
+            var loopTarget by remember(categoryId) { mutableStateOf(-1) }
+            var loopTick by remember(categoryId) { mutableStateOf(0) }
+            val loopFocus = remember(categoryId) { FocusRequester() }
+            LaunchedEffect(loopTick) {
+                if (loopTarget < 0) return@LaunchedEffect
+                state.scrollToItem(if (loopTarget == 0) 0 else (loopTarget - 6).coerceAtLeast(0))
+                delay(40)
+                runCatching { loopFocus.requestFocus() }
+            }
             if (list.isEmpty()) {
                 Text("No channels here.", color = Palette.TextMuted, fontSize = 14.sp,
                     modifier = Modifier.padding(top = 8.dp))
@@ -534,7 +544,16 @@ private fun ChannelListPanel(
                     val (nowProg, _) = vm.programmesFor(ch).nowAndNext(now)
                     FocusTile(
                         onClick = { onPick(categoryId, ch) }, selected = playing, corner = 10.dp, focusedScale = 1.02f,
-                        modifier = Modifier.fillMaxWidth().then(if (i == startIndex) Modifier.focusRequester(current) else Modifier),
+                        modifier = Modifier.fillMaxWidth().then(if (i == startIndex) Modifier.focusRequester(current) else Modifier)
+                            .then(if (i == loopTarget) Modifier.focusRequester(loopFocus) else Modifier)
+                            .onPreviewKeyEvent { e ->
+                                if (e.type != KeyEventType.KeyDown || list.size < 2) return@onPreviewKeyEvent false
+                                when {
+                                    e.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_DOWN && i == list.lastIndex -> { loopTarget = 0; loopTick++; true }
+                                    e.key.nativeKeyCode == AndroidKeyEvent.KEYCODE_DPAD_UP && i == 0 -> { loopTarget = list.lastIndex; loopTick++; true }
+                                    else -> false
+                                }
+                            },
                     ) {
                         Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp)) {

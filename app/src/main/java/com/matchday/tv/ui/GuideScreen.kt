@@ -148,8 +148,12 @@ fun GuideScreen(vm: AppViewModel) {
         val info = listState.layoutInfo
         val first = info.visibleItemsInfo.firstOrNull()?.index ?: 0
         val visible = (info.visibleItemsInfo.size - 1).coerceAtLeast(1)
-        if (row < first) listState.animateScrollToItem(row)
-        else if (row >= first + visible) listState.animateScrollToItem((row - visible + 1).coerceAtLeast(0))
+        val far = row < first - visible || row > first + 2 * visible // e.g. looping from the last channel to the first
+        if (row < first) { if (far) listState.scrollToItem(row) else listState.animateScrollToItem(row) }
+        else if (row >= first + visible) {
+            val target = (row - visible + 1).coerceAtLeast(0)
+            if (far) listState.scrollToItem(target) else listState.animateScrollToItem(target)
+        }
     }
     // Fetch the short EPG for channels the full guide doesn't cover, as they come into view.
     LaunchedEffect(row, vm.guide) {
@@ -325,8 +329,9 @@ fun GuideScreen(vm: AppViewModel) {
                                     }
                                 }
                                 // Up from the top row moves to the category switcher.
-                                AndroidKeyEvent.KEYCODE_DPAD_UP -> { if (row > 0) row--; true }
-                                AndroidKeyEvent.KEYCODE_DPAD_DOWN -> { if (row < channels.lastIndex) row++; true }
+                                // The channel list loops: past the last channel back to the first, and the other way.
+                                AndroidKeyEvent.KEYCODE_DPAD_UP -> { row = if (row > 0) row - 1 else channels.lastIndex; true }
+                                AndroidKeyEvent.KEYCODE_DPAD_DOWN -> { row = if (row < channels.lastIndex) row + 1 else 0; true }
                                 AndroidKeyEvent.KEYCODE_CHANNEL_UP, AndroidKeyEvent.KEYCODE_PAGE_UP -> { row = (row - 8).coerceAtLeast(0); true }
                                 AndroidKeyEvent.KEYCODE_CHANNEL_DOWN, AndroidKeyEvent.KEYCODE_PAGE_DOWN -> { row = (row + 8).coerceAtMost(channels.lastIndex); true }
                                 AndroidKeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {

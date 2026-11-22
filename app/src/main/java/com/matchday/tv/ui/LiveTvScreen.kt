@@ -29,6 +29,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.launch
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.nativeKeyCode
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -77,6 +82,7 @@ fun LiveTvScreen(vm: AppViewModel) {
     }
 
     var inChannels by remember { mutableStateOf(false) }
+    val loopScope = androidx.compose.runtime.rememberCoroutineScope()
     val selectedCat = remember { FocusRequester() }
     // Hold OK on a channel: favourites and "open in another player".
     var menuFor by remember { mutableStateOf<Channel?>(null) }
@@ -167,13 +173,29 @@ fun LiveTvScreen(vm: AppViewModel) {
                 verticalArrangement = Arrangement.spacedBy(2.dp),
                 contentPadding = PaddingValues(vertical = 6.dp, horizontal = 8.dp),
             ) {
-                itemsIndexed(channels, key = { _, c -> c.streamId }) { _, ch ->
+                itemsIndexed(channels, key = { _, c -> c.streamId }) { i, ch ->
                     ChannelRow(
                         vm = vm,
                         channel = ch,
                         favourite = vm.isFavourite(ch),
                         modifier = Modifier
                             .then(if (ch.streamId == vm.lastFocusedChannelId) Modifier.focusRequester(restoreFocus) else Modifier)
+                            // The list loops: down from the last channel goes to the first, up from the first to the last.
+                            .onPreviewKeyEvent { e ->
+                                if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown || channels.size < 2) return@onPreviewKeyEvent false
+                                val target = when {
+                                    e.key.nativeKeyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN && i == channels.lastIndex -> 0
+                                    e.key.nativeKeyCode == android.view.KeyEvent.KEYCODE_DPAD_UP && i == 0 -> channels.lastIndex
+                                    else -> return@onPreviewKeyEvent false
+                                }
+                                vm.lastFocusedChannelId = channels[target].streamId
+                                loopScope.launch {
+                                    channelListState.scrollToItem(if (target == 0) 0 else (target - 6).coerceAtLeast(0))
+                                    delay(40)
+                                    runCatching { restoreFocus.requestFocus() }
+                                }
+                                true
+                            }
                             .onFocusChanged {
                                 if (it.isFocused) {
                                     focused = ch
