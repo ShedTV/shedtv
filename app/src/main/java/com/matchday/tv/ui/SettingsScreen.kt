@@ -120,7 +120,7 @@ fun SettingsScreen(vm: AppViewModel) {
                 }
                 if (!slimTabs) {
                     Spacer(Modifier.height(16.dp))
-                    Text("Up and down to pick a section, then right to change its settings. Back returns here.", color = Palette.TextMuted, fontSize = 11.sp,
+                    Text("Right to change settings. Back returns here.", color = Palette.TextMuted, fontSize = 11.sp,
                         modifier = Modifier.padding(start = 6.dp, bottom = 24.dp))
                 }
             }
@@ -131,7 +131,7 @@ fun SettingsScreen(vm: AppViewModel) {
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(tab.label.uppercase(), color = Palette.Accent, fontSize = 20.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
-                if (!wide) Text(tab.blurb, color = Palette.TextSoft, fontSize = 13.sp)
+                if (!wide || !inContent) Text(tab.blurb, color = Palette.TextMuted, fontSize = 13.sp)
                 vm.error?.let { Text(it, color = Palette.Live, fontSize = 14.sp) }
                 Spacer(Modifier.height(4.dp))
                 when (tab) {
@@ -147,17 +147,20 @@ fun SettingsScreen(vm: AppViewModel) {
                 }
             }
             // The explanation for whatever is highlighted.
-            if (wide) {
-                val h = ui.help
+            // Only while you're on a setting, and only as tall as what it says.
+            val h = ui.help
+            if (wide && inContent && h != null) {
                 Column(
-                    Modifier.width(300.dp).fillMaxHeight().padding(top = 24.dp, bottom = 24.dp, end = 24.dp)
-                        .background(Palette.Card, RoundedCornerShape(14.dp)).padding(horizontal = 18.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    Modifier.width(300.dp).fillMaxHeight().verticalScroll(rememberScrollState()).padding(top = 64.dp, bottom = 24.dp, end = 24.dp),
                 ) {
-                    Text(if (h == null) "THIS SECTION" else "ABOUT THIS SETTING", color = Palette.TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                    Text(h?.title ?: tab.label, color = Palette.Text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                    Text(h?.body ?: tab.blurb, color = Palette.TextSoft, fontSize = 14.sp, lineHeight = 20.sp)
-                    h?.impact?.let { Text("ⓘ  $it", color = Palette.TextMuted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 4.dp)) }
+                    Column(
+                        Modifier.fillMaxWidth().background(Palette.Card, RoundedCornerShape(14.dp)).padding(horizontal = 18.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(h.title, color = Palette.Text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                        Text(h.body, color = Palette.TextSoft, fontSize = 14.sp, lineHeight = 20.sp)
+                        h.impact?.let { Text("ⓘ  $it", color = Palette.TextMuted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 4.dp)) }
+                    }
                 }
             }
         }
@@ -223,14 +226,16 @@ private fun SettingRow(
                 onClick = { ui.vm.settingsFocus = title; onClick(); ui.help = h },
                 onLongClick = onLongClick,
                 corner = 10.dp, focusedScale = 1.01f,
-                modifier = Modifier.weight(1f).focusRequester(focus).onFocusChanged { if (it.isFocused) ui.help = h },
+                modifier = Modifier.weight(1f).background(Palette.Card.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                    .focusRequester(focus).onFocusChanged { if (it.isFocused) ui.help = h },
             ) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false))
-                    if (tag != null) Tag(tag)
-                    Spacer(Modifier.weight(1f))
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Text(title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false))
+                        if (tag != null) Tag(tag)
+                    }
                     if (value != null) Text(value + "  ›", fontSize = 14.sp, maxLines = 1, color = LocalContentColor.current.copy(alpha = 0.75f))
                 }
             }
@@ -261,14 +266,14 @@ private fun SettingBlock(title: String, body: String, impact: String? = null, ta
     val h = Help(title, body, impact)
     var open by remember { mutableStateOf(false) }
     Column(
-        Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        Modifier.fillMaxWidth()
             .onFocusChanged { if (it.hasFocus) ui.help = h }
-            .background(Palette.Card.copy(alpha = 0.4f), RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
+            .background(Palette.Card.copy(alpha = 0.5f), RoundedCornerShape(10.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(title, color = Palette.TextSoft, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false))
+                modifier = Modifier.padding(start = 4.dp).weight(1f, fill = false))
             if (tag != null) Tag(tag)
             if (!ui.wide) { Spacer(Modifier.weight(1f)); InfoButton(open) { open = !open } }
         }
@@ -302,9 +307,9 @@ private fun SubscriptionSettings(vm: AppViewModel) {
                     selected = isActive, corner = 12.dp, focusedScale = 1.01f,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text(sub.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            Text(sub.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                             val kind = if (sub.playlist) "M3U playlist" else "${sub.host}  ·  ${sub.username}"
                             Text(kind + (if (!isActive && vm.useBackups) vm.backups[sub.id]?.status?.let { "  ·  $it" }.orEmpty() else ""),
                                 fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = 0.7f), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -314,18 +319,27 @@ private fun SubscriptionSettings(vm: AppViewModel) {
                 }
             }
             ChipRow {
-                Chip("+  Add subscription") { vm.startAddSubscription() }
-                Chip("📱  Add from my phone / copy from another device") { vm.openReceive() }
-                Chip("⇄  Send my setup to another device") { vm.navigate(Screen.SendSetup) }
+                Chip("+  Add") { vm.startAddSubscription() }
                 if (active != null) {
-                    Chip("Edit ${active.name}") { vm.startEditSubscription(active) }
-                    Chip(if (confirmRemove == active.id) "Press again to remove" else "Remove ${active.name}", danger = confirmRemove == active.id) {
+                    Chip("Edit") { vm.startEditSubscription(active) }
+                    Chip(if (confirmRemove == active.id) "Press again to remove" else "Remove", danger = confirmRemove == active.id) {
                         if (confirmRemove == active.id) { confirmRemove = null; vm.removeSubscription(active) } else confirmRemove = active.id
                     }
                 }
             }
         }
     }
+
+    SettingRow(
+        "Copy a setup to this device",
+        "Type your subscription details on your phone instead of with the remote, or copy everything from another ShedTV: subscriptions, favourites, settings and the parental lock.",
+        value = "Open",
+    ) { vm.openReceive() }
+    SettingRow(
+        "Send my setup to another device",
+        "Copies this ShedTV's subscriptions, favourites, settings and parental lock to another ShedTV on the same Wi-Fi. You'll get a 6-digit code to type on the other device.",
+        value = "Open",
+    ) { vm.navigate(Screen.SendSetup) }
 
     if (vm.subscriptions.size > 1) {
         ToggleRow(
@@ -527,7 +541,7 @@ private fun MenuSettings(vm: AppViewModel) {
                 FocusTile(
                     onClick = { if (isMoving) moving = null else vm.setMenuShown(id, !shown) },
                     onLongClick = { moving = if (isMoving) null else id },
-                    selected = shown || isMoving, corner = 10.dp, focusedScale = 1.01f,
+                    selected = isMoving, corner = 10.dp, focusedScale = 1.01f,
                     modifier = Modifier.fillMaxWidth().onFocusChanged { if (!it.isFocused && moving == id) moving = null }.onPreviewKeyEvent { e ->
                         if (e.type != androidx.compose.ui.input.key.KeyEventType.KeyDown) return@onPreviewKeyEvent false
                         when (e.key.nativeKeyCode) {
@@ -541,8 +555,9 @@ private fun MenuSettings(vm: AppViewModel) {
                     },
                 ) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text((if (isMoving) "↕  " else "") + menuLabel(id), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        Text(if (isMoving) "Up/down to move · OK to drop" else if (shown) "Shown" else "Hidden", fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = 0.7f))
+                        Text((if (isMoving) "↕  " else "") + menuLabel(id), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
+                            color = if (shown || isMoving) LocalContentColor.current else LocalContentColor.current.copy(alpha = 0.45f))
+                        Text(if (isMoving) "Up/down to move · OK to drop" else if (shown) "✓ Shown" else "Hidden", fontSize = 13.sp, color = LocalContentColor.current.copy(alpha = 0.75f))
                     }
                 }
             } }
@@ -582,7 +597,15 @@ private fun KidsSettings(vm: AppViewModel) {
         }
     }
     if (vm.kidsMode) SettingBlock("Bedtime, limits and Home", "Bedtime stops ShedTV at a set time, a daily limit stops it after so long, and the kids' Home keeps things simple. Changes take effect straight away.") { KidsExtras(vm) }
-    MakeItStick()
+    SettingRow(
+        "Stop kids uninstalling ShedTV",
+        "Kids mode keeps ShedTV child-friendly, but it can't stop someone uninstalling ShedTV, clearing its data or opening other apps. Use your device's own controls as well:\n\n" +
+            "•  Fire TV: Settings → Preferences → Parental Controls. Turn them on and set a PIN.\n" +
+            "•  Google TV, Chromecast and Google TV Streamer: add a Kids profile for your child and allow ShedTV in it. Children can't uninstall apps from a kids profile.\n" +
+            "•  Shield and other Android TV boxes: Settings → Device Preferences → Security & restrictions → Create restricted profile, then allow ShedTV.",
+        "Menu names may differ slightly on your device. Use a different PIN from your ShedTV one. More help: shedtv.app/kids",
+        value = "How",
+    ) { }
 }
 
 @Composable
