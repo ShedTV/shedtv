@@ -145,6 +145,27 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     /** Remembered here so Settings stays on the same section when the look changes. */
     var settingsTab by mutableStateOf(0)
 
+    /** Automatic updates (Settings → About). */
+    var autoUpdate by mutableStateOf(prefs.autoUpdate)
+        private set
+    fun turnAutoUpdate(on: Boolean) {
+        autoUpdate = on; prefs.autoUpdate = on
+        if (on) updater.check(silent = true) { updater.prepare() }
+    }
+    /** "Later" on the update offer: don't ask again until ShedTV next opens. */
+    var updateLater by mutableStateOf(false)
+
+    /** Offer the downloaded update only where restarting the app won't interrupt anything. */
+    fun shouldOfferUpdate(): Boolean {
+        if (!autoUpdate || updateLater || kidsMode) return false
+        val ready = updater.readyBuild ?: return false
+        if (ready <= updater.currentBuild) return false
+        val quiet = screen in setOf(Screen.Home, Screen.Live, Screen.Guide, Screen.Movies, Screen.Series, Screen.Settings, Screen.Search, Screen.Watchlist, Screen.Recordings, Screen.Downloads)
+        val recording = com.matchday.tv.record.RecorderManager.recordings.any { it.active }
+        val downloading = com.matchday.tv.download.DownloadManager.items.any { it.status == "downloading" }
+        return quiet && !recording && !downloading
+    }
+
     /** The setting last changed, so Settings can land back on it after a change rebuilds the screen (colour, text size...). */
     var settingsFocus: String? = null
 
@@ -796,7 +817,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         } else {
             activeSubscription?.let { connect(it, attempts = 4) }
         }
-        updater.check(silent = true)
+        updater.check(silent = true) { if (autoUpdate) updater.prepare() }
+        // TV boxes stay open for days: look for updates every 6 hours too.
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(6 * 60 * 60 * 1000L)
+                updater.check(silent = true) { if (autoUpdate) updater.prepare() }
+            }
+        }
         // Keep fixtures, alerts and the guide fresh while the app is open.
         viewModelScope.launch {
             while (true) {

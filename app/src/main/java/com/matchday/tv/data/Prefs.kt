@@ -218,6 +218,11 @@ class Prefs(context: Context) {
         get() = sp.getBoolean("stay50Hz", false)
         set(value) = sp.edit().putBoolean("stay50Hz", value).apply()
 
+    /** Download new builds in the background and offer to install them. On unless turned off. */
+    var autoUpdate: Boolean
+        get() = sp.getBoolean("autoUpdate", true)
+        set(value) = sp.edit().putBoolean("autoUpdate", value).apply()
+
     var animations: Boolean
         // Off for new installs; anyone who already had ShedTV keeps what they had.
         get() = if (sp.contains("animations")) sp.getBoolean("animations", false) else sp.contains("subscriptions")

@@ -708,6 +708,12 @@ private fun AboutSettings(vm: AppViewModel) {
         if (!vm.updater.canInstall) "The first time, your device needs to allow ShedTV to install apps. Install opens that switch for you." else null,
         value = if (vm.updater.busy) "Checking…" else "Build ${vm.updater.currentBuild}",
     ) { vm.updater.check(silent = false) }
+    ToggleRow(
+        "Automatic updates",
+        "When a new ShedTV is out, it downloads in the background and ShedTV offers to install it next time you're on Home or a menu, never while you're watching, recording or downloading. Choose Later and it asks again next time ShedTV opens.",
+        "Installing always asks your device to confirm, then choose Open to carry on. Off: updates only happen from here.",
+        on = vm.autoUpdate,
+    ) { vm.turnAutoUpdate(it) }
     if (vm.updater.available) {
         SettingRow(
             "Install build ${vm.updater.latestBuild}",

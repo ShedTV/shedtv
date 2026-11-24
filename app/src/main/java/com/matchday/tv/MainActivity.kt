@@ -135,6 +135,7 @@ private fun App(vm: AppViewModel) {
             com.matchday.tv.ui.ScreenClock(Modifier.align(Alignment.TopEnd).padding(top = 14.dp, end = 22.dp))
         }
         vm.kidsStop?.let { com.matchday.tv.ui.KidsStopOverlay(vm, it) }
+        if (vm.shouldOfferUpdate() && vm.pinRequest == null) com.matchday.tv.ui.UpdateOffer(vm)
         vm.pinRequest?.let { req -> com.matchday.tv.ui.PinPad(req.title, onCancel = { vm.pinRequest = null }, onDone = req.onDone) }
         val flash = vm.flash
         LaunchedEffect(flash) { if (flash != null) { delay(5_000); vm.flash = null } }

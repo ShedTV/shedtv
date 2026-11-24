@@ -219,3 +219,31 @@ fun KidsStopOverlay(vm: AppViewModel, reason: String) {
         }
     }
 }
+
+/** A new ShedTV has downloaded in the background: offer it, without interrupting anything. */
+@Composable
+fun UpdateOffer(vm: AppViewModel) {
+    val build = vm.updater.readyBuild ?: return
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(build) { delay(120); runCatching { focus.requestFocus() } }
+    BackHandler { vm.updateLater = true }
+    Box(Modifier.fillMaxSize().background(Color(0xCC07090C)), contentAlignment = Alignment.Center) {
+        Column(
+            Modifier.width(520.dp).background(Palette.Card, androidx.compose.foundation.shape.RoundedCornerShape(16.dp)).padding(28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("UPDATE READY", color = Palette.Accent, fontSize = 13.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("ShedTV build $build", color = Palette.Text, fontSize = 26.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily)
+            Text(
+                "It's already downloaded. Installing takes a few seconds: your device asks you to confirm, then choose Open to carry on. " +
+                    "Your settings, subscriptions and favourites stay as they are.",
+                color = Palette.TextSoft, fontSize = 15.sp, lineHeight = 21.sp,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+                Chip("Install now", selected = true, modifier = Modifier.focusRequester(focus)) { vm.updateLater = true; vm.updater.install() }
+                Chip("Later") { vm.updateLater = true }
+            }
+            Text("Turn this off in Settings → About & updates.", color = Palette.TextMuted, fontSize = 12.sp)
+        }
+    }
+}

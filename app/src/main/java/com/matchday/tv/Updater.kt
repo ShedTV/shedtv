@@ -57,8 +57,43 @@ class Updater(private val app: Application, private val scope: CoroutineScope) {
 
     val available: Boolean get() = (latestBuild ?: 0) > currentBuild
 
+    /** A newer build that has already been downloaded and checked, ready to install with one press. */
+    var readyBuild by mutableStateOf<Int?>(null)
+        private set
+    private var readyFile: File? = null
+
+    /** Automatic updates: download a newer build in the background so it's ready when you are. Quiet on failure. */
+    fun prepare() {
+        val want = latestBuild ?: return
+        if (!available || busy || readyBuild == want) return
+        scope.launch {
+            busy = true
+            try {
+                val file = withContext(Dispatchers.IO) { download() }
+                val code = verify(file)
+                readyFile = file
+                readyBuild = code
+                status = "Build $code is downloaded and ready to install."
+            } catch (_: Exception) {
+                status = "Build $want is available (you have build $currentBuild)."
+            }
+            busy = false
+        }
+    }
+
+    /** Make sure a download really is a newer ShedTV. Returns its build number. */
+    private fun verify(file: File): Int {
+        @Suppress("DEPRECATION")
+        val info = app.packageManager.getPackageArchiveInfo(file.path, 0) ?: throw IOException("the download isn't a valid app file")
+        @Suppress("DEPRECATION")
+        val code = info.versionCode
+        if (info.packageName != app.packageName) throw IOException("the download is a different app (${info.packageName})")
+        if (code <= currentBuild) throw IOException("the download was build $code, not newer than this one. Try again in a minute")
+        return code
+    }
+
     /** [silent] checks (at start-up) say nothing unless there is an update. */
-    fun check(silent: Boolean) {
+    fun check(silent: Boolean, onNewer: (() -> Unit)? = null) {
         if (busy) return
         scope.launch {
             busy = true
@@ -69,10 +104,14 @@ class Updater(private val app: Application, private val scope: CoroutineScope) {
                 apkUrl = urls.first
                 assetApiUrl = urls.second
                 status = when {
+                    build > currentBuild && readyBuild == build -> "Build $build is downloaded and ready to install."
                     build > currentBuild -> "Build $build is available (you have build $currentBuild)."
                     silent -> status
                     else -> "You're up to date (build $currentBuild)."
                 }
+                busy = false
+                if (build > currentBuild) onNewer?.invoke()
+                return@launch
             } catch (e: Exception) {
                 if (!silent) status = "Couldn't check for updates (${e.message}). A new build may be publishing; try again in a minute."
             }
@@ -142,15 +181,11 @@ class Updater(private val app: Application, private val scope: CoroutineScope) {
         scope.launch {
             busy = true
             try {
-                val file = withContext(Dispatchers.IO) { download() }
+                // Already downloaded in the background? Use it; otherwise fetch it now.
+                val ready = readyFile?.takeIf { it.exists() && readyBuild == latestBuild }
+                val file = ready ?: withContext(Dispatchers.IO) { download() }
                 // Make sure we really have the newer build before handing it over.
-                @Suppress("DEPRECATION")
-                val info = app.packageManager.getPackageArchiveInfo(file.path, 0)
-                    ?: throw IOException("the download isn't a valid app file")
-                @Suppress("DEPRECATION")
-                val code = info.versionCode
-                if (info.packageName != app.packageName) throw IOException("the download is a different app (${info.packageName})")
-                if (code <= currentBuild) throw IOException("the download was build $code, not newer than this one. Try again in a minute")
+                val code = verify(file)
                 status = "Installing build $code…"
                 withContext(Dispatchers.IO) { installWithSession(file) }
             } catch (e: Exception) {
