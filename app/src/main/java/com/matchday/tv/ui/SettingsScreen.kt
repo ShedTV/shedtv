@@ -557,7 +557,8 @@ private fun MenuSettings(vm: AppViewModel) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text((if (isMoving) "↕  " else "") + menuLabel(id), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
                             color = if (shown || isMoving) LocalContentColor.current else LocalContentColor.current.copy(alpha = 0.45f))
-                        Text(if (isMoving) "Up/down to move · OK to drop" else if (shown) "✓ Shown" else "Hidden", fontSize = 13.sp, color = LocalContentColor.current.copy(alpha = 0.75f))
+                        if (isMoving && hasTouchScreen()) TouchMoveButtons(onMove = { vm.moveMenu(id, it) }, onDone = { moving = null })
+                        else Text(if (isMoving) "Up/down to move · OK to drop" else if (shown) "✓ Shown" else "Hidden", fontSize = 13.sp, color = LocalContentColor.current.copy(alpha = 0.75f))
                     }
                 }
             } }

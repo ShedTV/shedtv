@@ -37,6 +37,9 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -344,3 +347,32 @@ fun Modifier.enterAt(target: androidx.compose.ui.focus.FocusRequester): Modifier
         }
     }
     .focusGroup()
+
+/** True on phones and tablets; false on TV boxes (Fire TV, Google TV, Shield), which have no touch screen. */
+@Composable
+fun hasTouchScreen(): Boolean {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    return remember { ctx.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN) }
+}
+
+/**
+ * Touch screens only: buttons to move the item you've picked up (hold to pick up). Remotes use up and down instead.
+ * Not focusable, so they never get in the way of the remote.
+ */
+@Composable
+fun TouchMoveButtons(onMove: (Int) -> Unit, onDone: () -> Unit) {
+    if (!hasTouchScreen()) return
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        listOf("⤒" to -10, "▲" to -1, "▼" to 1, "⤓" to 10).forEach { (label, by) ->
+            Box(
+                Modifier.size(width = 40.dp, height = 34.dp).background(Palette.Accent.copy(alpha = 0.18f), RoundedCornerShape(8.dp))
+                    .touchTap({ onMove(by) }),
+                contentAlignment = Alignment.Center,
+            ) { androidx.tv.material3.Text(label, color = Palette.Accent, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
+        }
+        Box(
+            Modifier.height(34.dp).background(Palette.Accent, RoundedCornerShape(8.dp)).touchTap({ onDone() }).padding(horizontal = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) { androidx.tv.material3.Text("Done", color = Palette.Background, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+    }
+}

@@ -58,6 +58,7 @@ fun CategoriesScreen(vm: AppViewModel) {
     var confirmAll by remember { mutableStateOf(false) }
     // Category being moved (hold OK to pick up, arrows to move, OK to drop).
     var moving by remember { mutableStateOf<String?>(null) }
+    val touch = hasTouchScreen()
     val field = remember { FocusRequester() }
     LaunchedEffect(Unit) { delay(100); runCatching { field.requestFocus() } }
     BackHandler { if (moving != null) moving = null else vm.navigate(Screen.Settings) }
@@ -71,7 +72,7 @@ fun CategoriesScreen(vm: AppViewModel) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column {
                 Text("MANAGE CATEGORIES", color = Palette.Text, fontSize = 26.sp, fontWeight = FontWeight.Bold, fontFamily = DisplayFamily, letterSpacing = 1.sp)
-                Text("${all.size - hidden.count { id -> all.any { it.id == id } }} of ${all.size} shown  ·  OK show/hide  ·  hold OK to move  ·  favourites always show",
+                Text("${all.size - hidden.count { id -> all.any { it.id == id } }} of ${all.size} shown" + if (touch) "  ·  tap to show/hide  ·  hold to move" else "  ·  OK show/hide  ·  hold OK to move  ·  favourites always show",
                     color = Palette.TextMuted, fontSize = 13.sp)
             }
         }
@@ -99,7 +100,8 @@ fun CategoriesScreen(vm: AppViewModel) {
         }
         if (confirmAll) Text("That hides every category. Press Hide again to confirm.", color = Palette.Live, fontSize = 13.sp)
         if (moving != null) {
-            Text("Moving: ▲ up  ·  ▼ down  ·  ◀◀ ▶▶ 10 places  ·  OK to drop", color = Palette.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(if (touch) "Moving: use ⤒ ▲ ▼ ⤓ on the category (⤒ ⤓ move 10 places), then Done"
+                else "Moving: ▲ up  ·  ▼ down  ·  ◀◀ ▶▶ 10 places  ·  OK to drop", color = Palette.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         } else if (words.isNotEmpty()) {
             Text("Clear the filter to move categories.", color = Palette.TextMuted, fontSize = 12.sp)
         }
@@ -154,7 +156,8 @@ fun CategoriesScreen(vm: AppViewModel) {
                         ) { if (isShown) Text("✓", color = Palette.Background, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
                         Text(if (isMoving) "↕  " + c.name else c.name, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
                             color = if (isShown) LocalContentColor.current else LocalContentColor.current.copy(alpha = 0.45f))
-                        Text(vm.categoryChannelCount(c.id).toString(), fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = 0.55f))
+                        if (isMoving) TouchMoveButtons(onMove = { vm.moveCategory(c.id, it) }, onDone = { moving = null })
+                        else Text(vm.categoryChannelCount(c.id).toString(), fontSize = 12.sp, color = LocalContentColor.current.copy(alpha = 0.55f))
                     }
                 }
             }
